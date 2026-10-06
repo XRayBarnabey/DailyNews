@@ -3,9 +3,6 @@ services:
     build: .
     container_name: dailynews
     restart: unless-stopped
-    env_file:
-      - path: .env
-        required: false
     environment:
       APP_ENV: ${APP_ENV:-production}
       ADMIN_USER: ${ADMIN_USER:-admin}
