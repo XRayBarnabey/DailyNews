@@ -14,7 +14,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       CUPS_SERVER: ${CUPS_SERVER:-}
       CUPS_PORT: ${CUPS_PORT:-631}
-      OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY:-}
+      OPENMETEO_API_KEY: ${OPENMETEO_API_KEY:-}
     ports:
       - "${WEB_PORT:-8000}:8000"
     volumes:

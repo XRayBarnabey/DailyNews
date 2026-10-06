@@ -1,4 +1,5 @@
 import importlib
+import io
 import json
 import tempfile
 import unittest
@@ -7,6 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from PIL import Image
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -100,22 +102,22 @@ class WebTests(unittest.TestCase):
             "show_qr_codes": True,
             "show_descriptions": True,
             "weather_locations": [
-                {"name": "Paris", "city_id": "https://openweathermap.org/city/2988507"},
-                {"name": "Lyon", "city_id": "4467639"},
+                {"name": "Paris", "latitude": 48.8566, "longitude": 2.3522, "timezone": "Europe/Paris"},
+                {"name": "Lyon", "latitude": 45.764, "longitude": 4.8357, "timezone": "Europe/Paris"},
             ],
         }
         response = self.client.put("/api/settings", auth=("admin", "change-me"), json=payload)
         self.assertEqual(response.status_code, 200)
         saved = response.json()
         self.assertEqual(saved["max_pages"], "2")
-        self.assertEqual([location["city_id"] for location in saved["weather_locations"]], [2988507, 4467639])
+        self.assertEqual([location["name"] for location in saved["weather_locations"]], ["Paris", "Lyon"])
         self.assertEqual(saved["columns"], "3")
         self.assertEqual(saved["show_qr_codes"], "true")
 
     def test_settings_form_persists_weather_locations_and_page_options(self):
         locations = [
-            {"name": "Paris", "city_id": "https://openweathermap.org/city/2988507"},
-            {"name": "Lyon", "city_id": "4467639"},
+            {"name": "Paris", "latitude": 48.8566, "longitude": 2.3522, "timezone": "Europe/Paris"},
+            {"name": "Lyon", "latitude": 45.764, "longitude": 4.8357, "timezone": "Europe/Paris"},
         ]
         response = self.client.post(
             "/settings",
@@ -136,10 +138,70 @@ class WebTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 303)
         saved = self.client.get("/api/settings", auth=("admin", "change-me")).json()
-        self.assertEqual([location["city_id"] for location in saved["weather_locations"]], [2988507, 4467639])
+        self.assertEqual([location["name"] for location in saved["weather_locations"]], ["Paris", "Lyon"])
         self.assertEqual(saved["max_pages"], "2")
         self.assertEqual(saved["columns"], "3")
         self.assertEqual(saved["show_qr_codes"], "true")
+
+    def test_city_search_returns_openmeteo_geocoding_suggestions(self):
+        payload = {
+            "results": [
+                {
+                    "name": "Caen",
+                    "admin1": "Normandie",
+                    "country": "France",
+                    "country_code": "FR",
+                    "latitude": 49.1846,
+                    "longitude": -0.3722,
+                    "timezone": "Europe/Paris",
+                },
+                {"name": "Caés", "country_code": "ES", "latitude": 43.4, "longitude": -5.4},
+            ]
+        }
+        with patch("app.main.urlopen", return_value=io.BytesIO(json.dumps(payload).encode())):
+            response = self.client.get("/api/weather/cities?q=caen", auth=("admin", "change-me"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()[0]["name"], "Caen")
+        self.assertEqual(len(response.json()), 1)
+        self.assertEqual(response.json()[0]["latitude"], 49.1846)
+
+    def test_meteo_key_is_configurable_but_never_returned(self):
+        payload = {
+            "newspaper_name": "Le Quotidien",
+            "timezone": "Europe/Paris",
+            "maximum_articles": 30,
+            "minimum_articles": 5,
+            "period_days": 1,
+            "columns": 2,
+            "max_pages": 4,
+            "weather_locations": [{"name": "Caen", "latitude": 49.1846, "longitude": -0.3722}],
+            "meteo_api_key": "private-customer-key",
+            "title_font": "Liberation Serif",
+            "article_font": "DejaVu Sans",
+        }
+        response = self.client.put("/api/settings", auth=("admin", "change-me"), json=payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("private-customer-key", response.text)
+        self.assertTrue(response.json()["meteo_api_key_configured"])
+        self.assertEqual(response.json()["title_font"], "Liberation Serif")
+        self.assertEqual(response.json()["article_font"], "DejaVu Sans")
+
+    def test_logo_upload_accepts_transparent_png_and_persists_it(self):
+        image_buffer = io.BytesIO()
+        Image.new("RGBA", (30, 12), (0, 0, 0, 0)).save(image_buffer, format="PNG")
+        with tempfile.TemporaryDirectory() as directory, patch.object(main_module, "PDF_DIR", Path(directory)):
+            response = self.client.post(
+                "/settings/logo",
+                auth=("admin", "change-me"),
+                files={"file": ("brand.png", image_buffer.getvalue(), "image/png")},
+                follow_redirects=False,
+            )
+            self.assertEqual(response.status_code, 303)
+            logo_path = Path(directory) / "branding" / "logo.png"
+            self.assertTrue(logo_path.is_file())
+            with Image.open(logo_path) as saved_logo:
+                self.assertEqual(saved_logo.mode, "RGBA")
+                self.assertEqual(saved_logo.getpixel((0, 0))[3], 0)
 
 
 if __name__ == "__main__":

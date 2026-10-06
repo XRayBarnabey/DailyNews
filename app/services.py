@@ -15,10 +15,10 @@ from sqlalchemy.orm import Session
 from weasyprint import CSS, HTML
 
 from app.calendar import fete_du_jour, format_french_date
-from app.config import PDF_DIR, TIMEZONE
+from app.config import OPENMETEO_API_KEY, PDF_DIR, TIMEZONE
 from app.models import Article, Edition, Feed, Setting
 from app.newsroom.selection import CandidateArticle, FeedQuota, select_articles
-from app.weather import OpenWeatherProvider, WeatherProvider
+from app.weather import OpenMeteoProvider, WeatherProvider
 
 logger = logging.getLogger(__name__)
 TEMPLATE_DIR = Path(__file__).parent / "templates"
@@ -39,7 +39,10 @@ DEFAULT_SETTINGS = {
     "show_descriptions": "true",
     "show_source_url": "false",
     "show_qr_codes": "false",
-    "weather_locations": '[{"name":"Paris","city_id":2988507}]',
+    "meteo_api_key": OPENMETEO_API_KEY,
+    "title_font": "DejaVu Serif",
+    "article_font": "DejaVu Serif",
+    "weather_locations": '[{"name":"Paris","latitude":48.8566,"longitude":2.3522,"timezone":"Europe/Paris"}]',
 }
 
 
@@ -150,17 +153,21 @@ def generate_edition(
         weather_locations = []
     if not weather_locations:
         weather_locations = [
-            {"name": settings["city"], "latitude": settings["latitude"], "longitude": settings["longitude"]}
+            {
+                "name": settings["city"],
+                "latitude": settings["latitude"],
+                "longitude": settings["longitude"],
+                "timezone": timezone_name,
+            }
         ]
-    provider = weather_provider or OpenWeatherProvider()
+    provider = weather_provider or OpenMeteoProvider(settings.get("meteo_api_key") or None)
     weather_reports = [
         provider.forecast(
-            city_id=location.get("city_id"),
-            city=location.get("name") or f"Ville {location.get('city_id', '')}",
-            forecast_date=edition_date,
-            timezone_name=timezone_name,
-            latitude=float(location["latitude"]) if location.get("latitude") is not None else None,
-            longitude=float(location["longitude"]) if location.get("longitude") is not None else None,
+            location["name"],
+            float(location["latitude"]),
+            float(location["longitude"]),
+            edition_date,
+            location.get("timezone", timezone_name),
         )
         for location in weather_locations[:10]
     ]
@@ -188,6 +195,10 @@ def generate_edition(
         "minimum_reached": len(selected_rows) >= int(settings["minimum_articles"]),
     }
     environment = Environment(loader=FileSystemLoader(TEMPLATE_DIR), autoescape=select_autoescape(["html"]))
+    logo_path = PDF_DIR / "branding" / "logo.png"
+    logo_data_uri = None
+    if logo_path.is_file():
+        logo_data_uri = "data:image/png;base64," + base64.b64encode(logo_path.read_bytes()).decode("ascii")
     output_path = PDF_DIR / f"{edition_date.isoformat()}.pdf"
     PDF_DIR.mkdir(parents=True, exist_ok=True)
     logger.info("PDF generation started", extra={"edition": edition_date.isoformat(), "articles": len(selected_rows)})
@@ -202,6 +213,8 @@ def generate_edition(
             selected_rows = ranked_rows[:article_count]
             html_content = environment.get_template("newspaper.html").render(
                 name=settings["newspaper_name"],
+                title_font=settings["title_font"],
+                article_font=settings["article_font"],
                 edition_date=edition_date,
                 articles=selected_rows,
                 weather=weather_reports,
@@ -210,6 +223,7 @@ def generate_edition(
                 timezone_name=timezone_name,
                 french_date=format_french_date(edition_date),
                 name_day=name_day,
+                logo_data_uri=logo_data_uri,
             )
             rendered = HTML(string=html_content, base_url=str(TEMPLATE_DIR)).render(
                 stylesheets=[CSS(filename=str(TEMPLATE_DIR / "newspaper.css"))]

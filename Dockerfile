@@ -5,7 +5,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libcairo2 libffi8 libgdk-pixbuf-2.0-0 libpango-1.0-0 libpangoft2-1.0-0 \
-    libharfbuzz-subset0 fonts-dejavu-core cups-client curl \
+    libharfbuzz-subset0 fonts-dejavu-core fonts-liberation2 cups-client curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./

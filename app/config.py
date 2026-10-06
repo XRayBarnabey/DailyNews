@@ -13,7 +13,7 @@ ADMIN_USER = os.getenv("ADMIN_USER", "admin")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "change-me")
 CUPS_SERVER = os.getenv("CUPS_SERVER", "")
 CUPS_PORT = int(os.getenv("CUPS_PORT", "631"))
-OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY", "")
+OPENMETEO_API_KEY = os.getenv("OPENMETEO_API_KEY", "")
 
 
 def ensure_directories() -> None:

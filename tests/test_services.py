@@ -16,7 +16,7 @@ from app.models import Article, Edition, Feed, Setting
 from app.printing import CupsPrintProvider
 from app.rss import fetch_feed
 from app.services import generate_edition
-from app.weather import OpenWeatherProvider, Weather, WeatherPeriod
+from app.weather import OpenMeteoProvider, Weather, WeatherPeriod
 
 
 class TestWeather:
@@ -25,13 +25,13 @@ class TestWeather:
     def __init__(self):
         self.locations = []
 
-    def forecast(self, city_id, city, forecast_date, timezone_name, latitude=None, longitude=None):
+    def forecast(self, city, latitude, longitude, forecast_date, timezone_name):
         self.locations.append(city)
         return Weather(
             city,
             forecast_date.isoformat(),
-            WeatherPeriod(12, 10, "Éclaircies"),
-            WeatherPeriod(16, 20, "Nuageux"),
+            WeatherPeriod(12, 10, "Éclaircies", "☀"),
+            WeatherPeriod(16, 20, "Nuageux", "☁"),
         )
 
 
@@ -64,8 +64,8 @@ class ServiceTests(unittest.TestCase):
 
     def test_weather_api_failure_returns_fallback(self):
         with patch("app.weather.urlopen", side_effect=TimeoutError("offline")):
-            weather = OpenWeatherProvider(api_key="test-key").forecast(
-                3029241, "Paris", datetime.now(ZoneInfo("Europe/Paris")).date(), "Europe/Paris"
+            weather = OpenMeteoProvider().forecast(
+                "Paris", 48.8566, 2.3522, datetime.now(ZoneInfo("Europe/Paris")).date(), "Europe/Paris"
             )
         self.assertEqual(weather.city, "Paris")
         self.assertEqual(weather.morning.condition, "Prévision indisponible")
@@ -235,8 +235,8 @@ class ServiceTests(unittest.TestCase):
     def test_multiple_weather_locations_render_below_title(self):
         today = datetime.now(ZoneInfo("Europe/Paris")).date()
         locations = [
-            {"name": "Paris", "city_id": 2988507},
-            {"name": "Lyon", "city_id": 2996944},
+            {"name": "Paris", "latitude": 48.8566, "longitude": 2.3522, "timezone": "Europe/Paris"},
+            {"name": "Lyon", "latitude": 45.764, "longitude": 4.8357, "timezone": "Europe/Paris"},
         ]
         self.db.add(Setting(key="weather_locations", value=json.dumps(locations)))
         self.db.commit()

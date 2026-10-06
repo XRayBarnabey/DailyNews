@@ -10,7 +10,7 @@ cd dailynews
 cp .env.example .env
 ```
 
-Modifiez `ADMIN_PASSWORD` et renseignez `OPENWEATHER_API_KEY` dans `.env` avant d’exposer l’application. La clé n’est pas conservée dans Git. Puis démarrez-la :
+Modifiez `ADMIN_PASSWORD` dans `.env` avant d’exposer l’application. Open-Meteo fonctionne sans clé pour un usage gratuit ; une clé client facultative se règle dans l’interface. Les secrets ne sont jamais publiés dans Git. Puis démarrez l’application :
 
 ```bash
 docker compose up -d
@@ -26,9 +26,9 @@ Depuis le tableau de bord, utilisez **Récupérer les flux** puis **Générer un
 
 La page **Flux RSS** permet d’ajouter, tester, activer, modifier et supprimer les sources. Le flux `mock://demo`, livré à l’installation, sert quatre articles fictifs datés de la veille sans accès réseau. Il peut être récupéré et généré comme n’importe quel flux.
 
-La page **Journal** permet d’ajouter jusqu’à dix villes en collant leur URL OpenWeather (`https://openweathermap.org/city/3029241`) ou en saisissant seulement l’ID numérique. Aucun couple latitude/longitude n’est nécessaire. OpenWeather fournit pour chaque ville la température, les conditions et le risque de précipitations du matin et de l’après-midi. La date française et la fête principale du jour sont imprimées en haut à gauche ; les noms sont lus depuis Nominis, avec repli silencieux si le service est indisponible. La clé météo reste dans `.env` et n’est jamais publiée.
+La page **Journal** permet d’ajouter jusqu’à dix villes en saisissant leur nom et en choisissant une suggestion Open-Meteo ; leurs coordonnées sont remplies automatiquement. Open-Meteo fournit la température, les conditions et le risque de précipitations du matin et de l’après-midi, y compris les créneaux matinaux passés grâce à `past_days`. L’API gratuite ne demande pas de clé ; une clé client facultative peut être changée dans l’interface sans jamais être renvoyée par l’API de lecture. La date française et la fête principale sont imprimées en haut à gauche, avec repli si Nominis est indisponible.
 
-Le PDF place le bandeau météo immédiatement sous le titre puis les articles résumés en une, deux ou trois colonnes, sans rubriques ni URL imprimées. Les QR codes vers les articles sont optionnels. Le plafond de pages se règle dans **Journal** : par exemple `2` pour une feuille recto-verso, `4` pour deux feuilles. Si nécessaire, les articles les moins bien classés sont retirés pour respecter le plafond sans couper le document.
+Le PDF place le bandeau météo immédiatement sous le titre puis les articles résumés en une, deux ou trois colonnes, sans rubriques ni URL imprimées. Les QR codes vers les articles sont optionnels. Deux polices indépendantes règlent le titre du journal et les articles ; un logo PNG transparent peut être importé pour l’angle supérieur droit. Le plafond de pages se règle dans **Journal** : `2` pour une feuille recto-verso, `4` pour deux feuilles. Si nécessaire, les articles les moins bien classés sont retirés pour respecter le plafond sans couper le document.
 
 La page **Planification** définit séparément les heures de collecte, de génération et d’impression, les jours actifs, l’activation automatique et les options CUPS. Le réglage initial propose 05:30, 06:00 et 06:10 tous les jours ; l’impression automatique est désactivée tant qu’aucune imprimante n’est sélectionnée.
 
@@ -83,7 +83,7 @@ python -m app.cli print
 | `LOG_LEVEL` | `INFO` | Niveau des journaux JSON |
 | `WEB_PORT` | `8000` | Port publié par Compose |
 | `CUPS_SERVER`, `CUPS_PORT` | local, `631` | Serveur CUPS optionnel |
-| `OPENWEATHER_API_KEY` | vide | Clé privée du fournisseur météo OpenWeather |
+| `OPENMETEO_API_KEY` | vide | Clé client Open-Meteo facultative (réglable aussi dans l’interface) |
 
 Les réglages éditoriaux et le planning sont ensuite administrés dans l’interface. Les journaux structurés sont envoyés sur la sortie du conteneur et écrits avec rotation dans `/data/logs/dailynews.log`.
 
@@ -143,7 +143,7 @@ app/main.py                 FastAPI, authentification, HTML et API
 app/models.py               Flux, articles, éditions, réglages, planning, impressions
 app/rss.py                  Parsing RSS, assainissement et protections réseau
 app/newsroom/selection.py   Fenêtre de dates, déduplication, quotas pondérés
-app/weather.py              Interface WeatherProvider et prévisions OpenWeather
+app/weather.py              Interface WeatherProvider et prévisions Open-Meteo
 app/services.py             Classification, composition et génération PDF
 app/templates/              Interface Jinja et gabarit presse
 app/scheduler.py            Jobs indépendants de collecte, génération, impression

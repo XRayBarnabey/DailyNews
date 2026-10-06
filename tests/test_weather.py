@@ -6,11 +6,11 @@ from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 from zoneinfo import ZoneInfo
 
-from app.weather import OpenWeatherProvider
+from app.weather import OpenMeteoProvider
 
 
 class WeatherTests(unittest.TestCase):
-    def test_openweather_forecast_selects_morning_and_afternoon(self):
+    def test_openmeteo_keeps_morning_data_when_generated_in_afternoon(self):
         zone = ZoneInfo("Europe/Paris")
         day = date(2026, 10, 6)
 
@@ -24,29 +24,42 @@ class WeatherTests(unittest.TestCase):
             }
 
         payload = {
-            "city": {"name": "Paris", "timezone": 7200},
-            "list": [item(9, 11.5, 0.2, "pluie faible"), item(15, 18.0, 0.65, "ciel dégagé")],
+            "timezone": "Europe/Paris",
+            "hourly": {
+                "time": ["2026-10-05T15:00", "2026-10-06T09:00", "2026-10-06T15:00"],
+                "temperature_2m": [14.0, 11.5, 18.0],
+                "precipitation_probability": [10, 20, 65],
+                "weather_code": [1, 61, 0],
+            },
         }
         with patch("app.weather.urlopen", return_value=io.BytesIO(json.dumps(payload).encode())) as request:
-            forecast = OpenWeatherProvider(api_key="test-key").forecast(3029241, "Paris", day, "Europe/Paris")
+            forecast = OpenMeteoProvider().forecast("Paris", 48.8, 2.3, day, "Europe/Paris")
 
         self.assertEqual(forecast.morning.temperature, 11.5)
         self.assertEqual(forecast.morning.precipitation_probability, 20)
         self.assertEqual(forecast.morning.condition, "Pluie faible")
+        self.assertEqual(forecast.morning.icon, "☂")
         self.assertEqual(forecast.afternoon.temperature, 18.0)
         self.assertEqual(forecast.afternoon.precipitation_probability, 65)
         request_url = request.call_args.args[0]
-        self.assertIn("api.openweathermap.org", request_url)
-        self.assertEqual(parse_qs(urlsplit(request_url).query)["id"], ["3029241"])
-        self.assertNotIn("lat", parse_qs(urlsplit(request_url).query))
+        self.assertIn("api.open-meteo.com/v1/forecast", request_url)
+        query = parse_qs(urlsplit(request_url).query)
+        self.assertEqual(query["past_days"], ["1"])
+        self.assertEqual(query["timezone"], ["Europe/Paris"])
 
-    def test_missing_key_and_provider_failure_return_fallback(self):
+    def test_openmeteo_uses_customer_key_when_configured(self):
         day = date(2026, 10, 6)
-        forecast = OpenWeatherProvider(api_key="").forecast(3029241, "Paris", day, "Europe/Paris")
-        self.assertEqual(forecast.morning.condition, "Prévision indisponible")
+        payload = {"hourly": {"time": [], "temperature_2m": [], "precipitation_probability": [], "weather_code": []}}
+        with patch("app.weather.urlopen", return_value=io.BytesIO(json.dumps(payload).encode())) as request:
+            OpenMeteoProvider(api_key="customer-test-key").forecast("Paris", 48.8, 2.3, day, "Europe/Paris")
+        request_url = request.call_args.args[0]
+        self.assertIn("customer-api.open-meteo.com", request_url)
+        self.assertEqual(parse_qs(urlsplit(request_url).query)["apikey"], ["customer-test-key"])
 
+    def test_provider_failure_returns_fallback(self):
+        day = date(2026, 10, 6)
         with patch("app.weather.urlopen", side_effect=TimeoutError):
-            failed = OpenWeatherProvider(api_key="test-key").forecast(3029241, "Paris", day, "Europe/Paris")
+            failed = OpenMeteoProvider().forecast("Paris", 48.8, 2.3, day, "Europe/Paris")
         self.assertEqual(failed.afternoon.condition, "Prévision indisponible")
 
 

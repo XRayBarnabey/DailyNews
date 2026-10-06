@@ -1,19 +1,34 @@
 from __future__ import annotations
 
 import hmac
+import io
 import json
 import logging
-import re
 from contextlib import asynccontextmanager
 from pathlib import Path
-from urllib.parse import urlsplit
+from typing import Literal
+from urllib.parse import urlencode
+from urllib.request import Request as URLRequest
+from urllib.request import urlopen
 
-from fastapi import APIRouter, Depends, FastAPI, Form, HTTPException, Request, Response, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -84,30 +99,10 @@ class GenerateInput(BaseModel):
 
 
 class WeatherLocationInput(BaseModel):
-    name: str = Field(default="", max_length=100)
-    city_id: int | None = Field(default=None, ge=1)
-    latitude: float | None = Field(default=None, ge=-90, le=90)
-    longitude: float | None = Field(default=None, ge=-180, le=180)
-
-    @field_validator("city_id", mode="before")
-    @classmethod
-    def parse_city_id(cls, value):
-        if value is None or value == "":
-            return None
-        if isinstance(value, int) or str(value).strip().isdigit():
-            return int(value)
-        parts = urlsplit(str(value).strip())
-        if parts.scheme in {"http", "https"} and parts.hostname in {"openweathermap.org", "www.openweathermap.org"}:
-            match = re.fullmatch(r"/city/(\d+)/?", parts.path)
-            if match:
-                return int(match.group(1))
-        raise ValueError("Collez l’URL OpenWeather /city/<id> ou saisissez son identifiant numérique.")
-
-    @model_validator(mode="after")
-    def validate_location(self):
-        if self.city_id is None and (self.latitude is None or self.longitude is None):
-            raise ValueError("Un identifiant de ville OpenWeather est requis.")
-        return self
+    name: str = Field(min_length=1, max_length=100)
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    timezone: str = "auto"
 
 
 class SettingsInput(BaseModel):
@@ -122,14 +117,40 @@ class SettingsInput(BaseModel):
     columns: int = Field(ge=1, le=3)
     max_pages: int = Field(default=4, ge=1, le=32)
     weather_locations: list[WeatherLocationInput] = Field(
-        default_factory=lambda: [WeatherLocationInput(name="Paris", city_id=2988507)],
+        default_factory=lambda: [
+            WeatherLocationInput(name="Paris", latitude=48.8566, longitude=2.3522, timezone="Europe/Paris")
+        ],
         min_length=1,
         max_length=10,
     )
+    meteo_api_key: str | None = Field(default=None, max_length=300)
+    clear_meteo_api_key: bool = False
+    title_font: Literal["DejaVu Serif", "DejaVu Sans", "Liberation Serif", "Liberation Sans"] = "DejaVu Serif"
+    article_font: Literal["DejaVu Serif", "DejaVu Sans", "Liberation Serif", "Liberation Sans"] = "DejaVu Serif"
     show_images: bool = False
     show_descriptions: bool = True
     show_source_url: bool = False
     show_qr_codes: bool = False
+
+
+def persist_settings_model(db: Session, values: SettingsInput) -> None:
+    stored = {
+        key: value if key == "weather_locations" else str(value).lower() if isinstance(value, bool) else str(value)
+        for key, value in values.model_dump(exclude={"meteo_api_key", "clear_meteo_api_key"}).items()
+    }
+    if values.clear_meteo_api_key:
+        stored["meteo_api_key"] = ""
+    elif values.meteo_api_key and values.meteo_api_key.strip():
+        stored["meteo_api_key"] = values.meteo_api_key.strip()
+    save_settings(db, stored)
+
+
+def public_settings(db: Session) -> dict:
+    values = settings_dict(db)
+    values["weather_locations"] = json.loads(values["weather_locations"])
+    values["meteo_api_key_configured"] = bool(values.get("meteo_api_key"))
+    values.pop("meteo_api_key", None)
+    return values
 
 
 class ScheduleInput(BaseModel):
@@ -305,20 +326,84 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         weather_locations = [
             {
                 "name": settings.get("city", "Paris"),
-                "city_id": "",
                 "latitude": settings.get("latitude", "48.8566"),
                 "longitude": settings.get("longitude", "2.3522"),
+                "timezone": settings.get("timezone", TIMEZONE),
             }
         ]
-    weather_locations = [
-        {"name": location.get("name", ""), "city_id": location.get("city_id", ""), **location}
-        for location in weather_locations
-    ]
+    settings["meteo_api_key_configured"] = bool(settings.get("meteo_api_key"))
+    settings["meteo_api_key"] = ""
+    logo_path = PDF_DIR / "branding" / "logo.png"
     return templates.TemplateResponse(
         request,
         "settings.html",
-        {"active": "settings", "settings": settings, "weather_locations": weather_locations},
+        {
+            "active": "settings",
+            "settings": settings,
+            "weather_locations": weather_locations,
+            "logo_present": logo_path.is_file(),
+        },
     )
+
+
+@api.get("/weather/cities")
+def api_weather_cities(q: str = Query(min_length=2, max_length=80)):
+    params = urlencode({"name": q, "count": 8, "language": "fr", "format": "json"})
+    request = URLRequest(
+        f"https://geocoding-api.open-meteo.com/v1/search?{params}", headers={"User-Agent": "DailyNews/1.0"}
+    )
+    try:
+        with urlopen(request, timeout=5) as response:
+            data = json.loads(response.read(200_000))
+        return [
+            {
+                "name": item["name"],
+                "admin1": item.get("admin1", ""),
+                "country": item.get("country", ""),
+                "latitude": item["latitude"],
+                "longitude": item["longitude"],
+                "timezone": item.get("timezone", "auto"),
+            }
+            for item in data.get("results", [])
+            if item.get("country_code") == "FR" and "latitude" in item and "longitude" in item
+        ]
+    except Exception as exc:
+        logger.warning("Open-Meteo city search failed", extra={"error": type(exc).__name__})
+        return []
+
+
+@web.post("/settings/logo")
+async def settings_logo(file: UploadFile = File(...)):
+    payload = await file.read(2_000_001)
+    if len(payload) > 2_000_000 or not payload.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise HTTPException(415, "Choisissez un fichier PNG de moins de 2 Mo.")
+    try:
+        from PIL import Image
+
+        with Image.open(io.BytesIO(payload)) as image:
+            if image.format != "PNG" or image.width > 3000 or image.height > 1500:
+                raise ValueError("Dimensions invalides")
+            image.load()
+            logo_path = PDF_DIR / "branding" / "logo.png"
+            logo_path.parent.mkdir(parents=True, exist_ok=True)
+            image.convert("RGBA").save(logo_path, format="PNG", optimize=True)
+    except Exception as exc:
+        raise HTTPException(422, "Le fichier PNG ne peut pas être lu.") from exc
+    return RedirectResponse("/settings?notice=Logo%20enregistré", status_code=303)
+
+
+@web.post("/settings/logo/delete")
+def settings_logo_delete():
+    (PDF_DIR / "branding" / "logo.png").unlink(missing_ok=True)
+    return RedirectResponse("/settings?notice=Logo%20retiré", status_code=303)
+
+
+@web.get("/settings/logo")
+def settings_logo_preview():
+    logo_path = PDF_DIR / "branding" / "logo.png"
+    if not logo_path.is_file():
+        raise HTTPException(404, "Aucun logo enregistré")
+    return FileResponse(logo_path, media_type="image/png")
 
 
 @web.post("/settings")
@@ -332,6 +417,10 @@ def settings_save(
     period_days: int = Form(1),
     columns: int = Form(2),
     max_pages: int = Form(4),
+    meteo_api_key: str = Form(""),
+    clear_meteo_api_key: bool = Form(False),
+    title_font: str = Form("DejaVu Serif"),
+    article_font: str = Form("DejaVu Serif"),
     show_images: bool = Form(False),
     show_descriptions: bool = Form(True),
     show_qr_codes: bool = Form(False),
@@ -349,28 +438,26 @@ def settings_save(
         values = SettingsInput(
             newspaper_name=newspaper_name,
             timezone=timezone,
-            city=first_location.name or str(first_location.city_id or "Paris"),
-            latitude=first_location.latitude or 48.8566,
-            longitude=first_location.longitude or 2.3522,
+            city=first_location.name,
+            latitude=first_location.latitude,
+            longitude=first_location.longitude,
             maximum_articles=maximum_articles,
             minimum_articles=minimum_articles,
             period_days=period_days,
             columns=columns,
             max_pages=max_pages,
             weather_locations=locations,
+            meteo_api_key=meteo_api_key or None,
+            clear_meteo_api_key=clear_meteo_api_key,
+            title_font=title_font,
+            article_font=article_font,
             show_images=show_images,
             show_descriptions=show_descriptions,
             show_qr_codes=show_qr_codes,
         )
     except Exception as exc:
         raise HTTPException(422, str(exc)) from exc
-    save_settings(
-        db,
-        {
-            key: value if key == "weather_locations" else str(value).lower() if isinstance(value, bool) else str(value)
-            for key, value in values.model_dump().items()
-        },
-    )
+    persist_settings_model(db, values)
     return RedirectResponse("/settings?notice=Param%C3%A8tres%20enregistr%C3%A9s", status_code=303)
 
 
@@ -659,9 +746,7 @@ def api_edition_print(edition_id: int, db: Session = Depends(get_db)):
 
 @api.get("/settings")
 def api_settings(db: Session = Depends(get_db)):
-    values = settings_dict(db)
-    values["weather_locations"] = json.loads(values["weather_locations"])
-    return values
+    return public_settings(db)
 
 
 @api.put("/settings")
@@ -672,14 +757,8 @@ def api_save_settings(data: SettingsInput, db: Session = Depends(get_db)):
         ZoneInfo(data.timezone)
     except Exception as exc:
         raise HTTPException(422, "Fuseau horaire inconnu") from exc
-    save_settings(
-        db,
-        {
-            key: value if key == "weather_locations" else str(value).lower() if isinstance(value, bool) else str(value)
-            for key, value in data.model_dump().items()
-        },
-    )
-    return api_settings(db)
+    persist_settings_model(db, data)
+    return public_settings(db)
 
 
 @api.get("/schedule")
