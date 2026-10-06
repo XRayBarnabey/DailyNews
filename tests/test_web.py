@@ -90,6 +90,25 @@ class WebTests(unittest.TestCase):
                 self.assertIsNone(session.get(Edition, edition_id))
                 self.assertEqual(session.query(PrintJob).filter_by(edition_id=edition_id).count(), 0)
 
+    def test_edition_page_shows_last_print_job_message(self):
+        auth = ("admin", "change-me")
+        with self.session_factory() as session:
+            edition = Edition(edition_date=date(2026, 10, 6), pdf_path="/tmp/none.pdf", status="ready")
+            session.add(edition)
+            session.flush()
+            edition_id = edition.id
+            session.commit()
+        page = self.client.get(f"/editions/{edition_id}", auth=auth)
+        self.assertEqual(page.status_code, 200)
+        self.assertNotIn("Dernière impression", page.text)
+        with self.session_factory() as session:
+            session.add(PrintJob(edition_id=edition_id, printer_name="P", status="terminée"))
+            session.add(PrintJob(edition_id=edition_id, printer_name="P", status="erreur", message="lp: boom"))
+            session.commit()
+        page = self.client.get(f"/editions/{edition_id}", auth=auth)
+        self.assertIn("Dernière impression : erreur", page.text)
+        self.assertIn("lp: boom", page.text)
+
     def test_settings_api_saves_multiple_weather_locations_and_page_options(self):
         payload = {
             "newspaper_name": "Le Quotidien",

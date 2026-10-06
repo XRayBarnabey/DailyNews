@@ -224,3 +224,4 @@ td strong, .cell-url { display: block; }
 .weather-check-result:empty { display: none; }
 .weather-check-result.is-error { color: #a12; }
 .app-version { font-weight: 600; color: var(--ink); }
+.print-job-error { border-left-color: #b00020; }

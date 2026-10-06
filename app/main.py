@@ -566,6 +566,12 @@ def edition_page(edition_id: int, request: Request, db: Session = Depends(get_db
             "edition": edition,
             "report": json.loads(edition.report or "{}"),
             "schedule": db.get(Schedule, 1),
+            "last_print_job": db.scalar(
+                select(PrintJob)
+                .where(PrintJob.edition_id == edition.id)
+                .order_by(PrintJob.created_at.desc(), PrintJob.id.desc())
+                .limit(1)
+            ),
         },
     )
 
