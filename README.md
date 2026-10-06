@@ -53,7 +53,7 @@ CUPS_SERVER=192.168.1.20
 CUPS_PORT=631
 ```
 
-Autorisez le client sur le serveur CUPS, puis sélectionnez l’imprimante dans **Planification**. Le bouton **Imprimer** envoie l’édition manuellement. Les copies, le format A4 et le recto-verso sur le bord long sont envoyés à CUPS ; chaque tentative est inscrite dans `print_jobs`. L’absence de CUPS n’empêche ni l’archivage ni le téléchargement du PDF.
+Autorisez le client sur le serveur CUPS, puis sélectionnez l’imprimante dans **Planification**. Le bouton **Imprimer** envoie l’édition manuellement. Les copies, le format A4 et le recto-verso sur le bord long sont envoyés à CUPS ; chaque tentative est inscrite dans `print_jobs`. Note technique : le PDF est envoyé à `lp` via stdin (`lp ... -`) pour éviter les problèmes de chemin ou de montage entre conteneur et serveur CUPS ; en cas d’échec, le `stderr` de CUPS est conservé dans le message du `print_jobs`. L’absence de CUPS n’empêche ni l’archivage ni le téléchargement du PDF.
 
 ## CLI
 

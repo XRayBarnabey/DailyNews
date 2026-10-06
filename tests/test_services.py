@@ -1,4 +1,5 @@
 import json
+import subprocess
 import tempfile
 import unittest
 from datetime import datetime, timedelta
@@ -78,13 +79,31 @@ class ServiceTests(unittest.TestCase):
             patch.object(provider, "printers", return_value=["Office"]),
             patch("app.printing.subprocess.run") as run,
         ):
-            run.return_value.stdout = "job queued"
+            pdf.write(b"%PDF-1.4 test")
+            pdf.flush()
+            run.return_value.stdout = b"job queued"
             run.return_value.check_returncode = lambda: None
             message = provider.print_pdf(pdf.name, "Office", copies=2, duplex=True)
         command = run.call_args.args[0]
+        self.assertEqual(command[-1], "-")
+        self.assertEqual(run.call_args.kwargs["input"], b"%PDF-1.4 test")
         self.assertIn("sides=two-sided-long-edge", command)
         self.assertIn("-n", command)
         self.assertEqual(message, "job queued")
+
+    def test_cups_error_message_includes_stderr(self):
+        provider = CupsPrintProvider()
+        with (
+            tempfile.NamedTemporaryFile(suffix=".pdf") as pdf,
+            patch.object(provider, "printers", return_value=["Office"]),
+            patch(
+                "app.printing.subprocess.run",
+                side_effect=subprocess.CalledProcessError(1, ["lp"], stderr=b"lp: Forbidden"),
+            ),
+        ):
+            with self.assertRaises(RuntimeError) as ctx:
+                provider.print_pdf(pdf.name, "Office")
+        self.assertIn("lp: Forbidden", str(ctx.exception))
 
     def test_generation_writes_a4_pdf_and_archive_record(self):
         zone = ZoneInfo("Europe/Paris")
