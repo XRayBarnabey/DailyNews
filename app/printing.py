@@ -1,10 +1,49 @@
 from __future__ import annotations
 
 import os
+import smtplib
 import subprocess
+from email.message import EmailMessage
 from typing import Protocol
 
-from app.config import CUPS_PORT, CUPS_SERVER
+from app.config import (
+    CUPS_PORT,
+    CUPS_SERVER,
+    EPSON_CONNECT_EMAIL,
+    SMTP_FROM,
+    SMTP_HOST,
+    SMTP_PASSWORD,
+    SMTP_PORT,
+    SMTP_STARTTLS,
+    SMTP_USER,
+)
+
+EMAIL_PRINTER = "epson-connect-email"
+
+
+def email_printing_enabled() -> bool:
+    return bool(EPSON_CONNECT_EMAIL and SMTP_HOST and SMTP_FROM)
+
+
+def send_pdf_by_email(pdf_path: str) -> str:
+    """Send the PDF to the printer's Epson Connect address (the printer prints attachments)."""
+    message = EmailMessage()
+    message["From"] = SMTP_FROM
+    message["To"] = EPSON_CONNECT_EMAIL
+    message["Subject"] = os.path.basename(pdf_path)
+    message.set_content("DailyNews")
+    with open(pdf_path, "rb") as handle:
+        message.add_attachment(
+            handle.read(), maintype="application", subtype="pdf", filename=os.path.basename(pdf_path)
+        )
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as smtp:
+        if SMTP_STARTTLS:
+            smtp.starttls()
+        if SMTP_USER:
+            smtp.login(SMTP_USER, SMTP_PASSWORD)
+        smtp.send_message(message)
+    return "PDF envoyé à l'imprimante via Epson Connect."
+
 
 
 class PrintProvider(Protocol):
@@ -20,14 +59,24 @@ class CupsPrintProvider:
         return environment
 
     def printers(self) -> list[str]:
-        result = subprocess.run(
-            ["lpstat", "-p"], capture_output=True, text=True, timeout=8, env=self._environment(), check=True
-        )
-        return [line.split()[1] for line in result.stdout.splitlines() if line.startswith("printer ")]
+        extra = [EMAIL_PRINTER] if email_printing_enabled() else []
+        try:
+            result = subprocess.run(
+                ["lpstat", "-p"], capture_output=True, text=True, timeout=8, env=self._environment(), check=True
+            )
+        except (OSError, subprocess.SubprocessError):
+            if extra:
+                return extra
+            raise
+        return [line.split()[1] for line in result.stdout.splitlines() if line.startswith("printer ")] + extra
 
     def print_pdf(self, pdf_path: str, printer: str, copies: int = 1, duplex: bool = True) -> str:
         if not os.path.isfile(pdf_path):
             raise FileNotFoundError(pdf_path)
+        if printer == EMAIL_PRINTER:
+            if not email_printing_enabled():
+                raise ValueError("Impression par e-mail non configurée.")
+            return send_pdf_by_email(pdf_path)
         if printer not in self.printers():
             raise ValueError("Imprimante inconnue ou indisponible.")
         command = [

@@ -156,3 +156,10 @@ app/cli.py                  Commandes opérationnelles
 ```
 
 Les PDF sont au format A4, noir et blanc, avec en-tête, bandeau météo horizontal et folios. Les articles s’écoulent en colonnes ; un plafond de pages réduit la sélection éditoriale plutôt que de tronquer le PDF.
+## Impression par e-mail (Epson Connect)
+
+Si l'imprimante (ex. EPSON WF-4830) ne peut pas être ajoutée à CUPS, activez Epson Connect sur l'imprimante
+puis renseignez son adresse e-mail et un serveur SMTP : `EPSON_CONNECT_EMAIL`, `SMTP_HOST`, `SMTP_PORT`,
+`SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` (l'adresse expéditrice doit être autorisée dans Epson Connect).
+Une imprimante virtuelle `epson-connect-email` apparaît alors dans la liste ; le PDF lui est envoyé en pièce jointe.
+Les options copies/recto-verso ne s'appliquent pas à ce mode.
