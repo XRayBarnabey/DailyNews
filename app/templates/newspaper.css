@@ -17,13 +17,13 @@ body { margin: 0; }
 .weather-strip { display: flex; flex-wrap: wrap; gap: 3mm; margin: 4mm 0 5mm; padding: 0 0 4mm; border-bottom: 1pt solid #171717; }
 .weather-city { flex: 1 1 68mm; min-width: 0; padding: 2mm; border: .5pt solid #aaa; break-inside: avoid; }
 .weather-city h2 { margin: 0 0 1mm; font: bold 9pt sans-serif; }
-.weather-periods { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; }
-.weather-period { display: grid; grid-template-columns: 8mm minmax(0, 1fr) auto; grid-template-rows: auto auto auto; gap: .5mm 1mm; align-items: center; min-width: 0; font: 7pt sans-serif; }
-.weather-label { grid-column: 1 / -1; font-size: 6pt; font-weight: 700; text-transform: uppercase; }
-.weather-icon { grid-column: 1; grid-row: 2 / 4; font: 17pt/1 "DejaVu Sans", sans-serif; text-align: center; }
-.weather-period strong { grid-column: 3; grid-row: 2; font: bold 13pt sans-serif; }
-.weather-condition { grid-column: 2; overflow-wrap: anywhere; color: #333; }
-.weather-risk { grid-column: 2 / 4; color: #555; }
+.weather-periods { display: flex; gap: 3mm; }
+.weather-period { flex: 1 1 0; min-width: 0; font: 7pt sans-serif; }
+.weather-label { display: block; margin-bottom: .5mm; font-size: 6pt; font-weight: 700; text-transform: uppercase; white-space: nowrap; }
+.weather-icon { display: inline-block; margin-right: 1.5mm; vertical-align: middle; font: 15pt/1 "DejaVu Sans", sans-serif; }
+.weather-period strong { display: inline-block; vertical-align: middle; font: bold 13pt sans-serif; }
+.weather-condition { display: block; margin-top: .5mm; color: #333; }
+.weather-risk { display: block; color: #555; }
 .article-list { columns: 2; column-gap: 7mm; column-rule: .5pt solid #bbb; }
 .story { display: inline-flex; width: 100%; align-items: flex-start; gap: 2mm; margin: 0 0 4mm; padding: 0 1mm 3mm; border-bottom: .5pt solid #aaa; break-inside: avoid-column; }
 .story-copy { min-width: 0; flex: 1; }
