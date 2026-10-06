@@ -11,18 +11,27 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 
 from app.database import Base
-from app.models import Article, Edition, Feed
+from app.models import Article, Edition, Feed, Setting
 from app.printing import CupsPrintProvider
 from app.rss import fetch_feed
 from app.services import generate_edition
-from app.weather import OpenMeteoProvider
+from app.weather import OpenWeatherProvider, Weather, WeatherPeriod
 
 
 class TestWeather:
-    def current(self, city, latitude, longitude):
-        from app.weather import Weather
+    __test__ = False
 
-        return Weather(city, "2026-10-06", 12, 8, 16, "Éclaircies", 10)
+    def __init__(self):
+        self.locations = []
+
+    def forecast(self, city, latitude, longitude, forecast_date, timezone_name):
+        self.locations.append(city)
+        return Weather(
+            city,
+            forecast_date.isoformat(),
+            WeatherPeriod(12, 10, "Éclaircies"),
+            WeatherPeriod(16, 20, "Nuageux"),
+        )
 
 
 class ServiceTests(unittest.TestCase):
@@ -54,10 +63,12 @@ class ServiceTests(unittest.TestCase):
 
     def test_weather_api_failure_returns_fallback(self):
         with patch("app.weather.urlopen", side_effect=TimeoutError("offline")):
-            weather = OpenMeteoProvider().current("Paris", 48.8566, 2.3522)
+            weather = OpenWeatherProvider(api_key="test-key").forecast(
+                "Paris", 48.8566, 2.3522, datetime.now(ZoneInfo("Europe/Paris")).date(), "Europe/Paris"
+            )
         self.assertEqual(weather.city, "Paris")
-        self.assertEqual(weather.condition, "Météo indisponible")
-        self.assertIsNone(weather.temperature)
+        self.assertEqual(weather.morning.condition, "Prévision indisponible")
+        self.assertIsNone(weather.morning.temperature)
 
     def test_cups_command_uses_duplex_and_isolated_provider(self):
         provider = CupsPrintProvider()
@@ -102,6 +113,9 @@ class ServiceTests(unittest.TestCase):
             self.assertAlmostEqual(float(reader.pages[0].mediabox.height), 841.89, delta=1)
             self.assertEqual(edition.article_count, 4)
             self.assertIsNotNone(self.db.scalar(select(Edition).where(Edition.edition_date == today)))
+            text = " ".join(page.extract_text() or "" for page in reader.pages)
+            self.assertNotIn("À LA UNE", text)
+            self.assertNotIn("FAITS MARQUANTS", text)
 
     def test_no_feeds_or_candidates_produces_an_edition(self):
         today = datetime.now(ZoneInfo("Europe/Paris")).date()
@@ -143,7 +157,7 @@ class ServiceTests(unittest.TestCase):
             edition = generate_edition(self.db, edition_date=today, weather_provider=TestWeather())
             self.assertEqual(edition.article_count, len(titles))
             self.assertGreaterEqual(json.loads(edition.report)["sections"], 5)
-            self.assertGreaterEqual(edition.page_count, 2)
+            self.assertGreaterEqual(edition.page_count, 1)
 
     def test_pdf_failure_is_recorded_in_edition_history(self):
         today = datetime.now(ZoneInfo("Europe/Paris")).date()
@@ -158,6 +172,78 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(edition.status, "error")
         self.assertIn("renderer unavailable", edition.error)
         self.assertEqual(edition.page_count, 0)
+
+    def test_page_limit_selects_fewer_articles_without_exceeding_cap(self):
+        zone = ZoneInfo("Europe/Paris")
+        today = datetime.now(zone).date()
+        published = datetime.combine(today - timedelta(days=1), datetime.min.time(), tzinfo=zone) + timedelta(hours=9)
+        feed = Feed(name="Revue", url="mock://demo", category="Divers", weight=1)
+        self.db.add_all([feed, Setting(key="max_pages", value="1"), Setting(key="maximum_articles", value="30")])
+        self.db.flush()
+        for index in range(20):
+            self.db.add(
+                Article(
+                    feed_id=feed.id,
+                    title=f"Article {index} : actualité importante du jour",
+                    url=f"https://news.test/cap-{index}",
+                    summary=("Le résumé détaille cette information et ses conséquences. " * 12),
+                    published_at=published,
+                )
+            )
+        self.db.commit()
+        with tempfile.TemporaryDirectory() as directory, patch("app.services.PDF_DIR", Path(directory)):
+            edition = generate_edition(self.db, edition_date=today, weather_provider=TestWeather())
+        self.assertLess(edition.article_count, 20)
+        self.assertLessEqual(edition.page_count, 1)
+
+    def test_qr_option_embeds_codes_without_printing_urls(self):
+        zone = ZoneInfo("Europe/Paris")
+        today = datetime.now(zone).date()
+        published = datetime.combine(today - timedelta(days=1), datetime.min.time(), tzinfo=zone) + timedelta(hours=9)
+        feed = Feed(name="Revue", url="mock://demo", category="Divers", weight=1)
+        self.db.add_all([feed, Setting(key="show_qr_codes", value="true")])
+        self.db.flush()
+        article_url = "https://news.test/qr-destination"
+        self.db.add(
+            Article(
+                feed_id=feed.id,
+                title="Un article avec un QR code",
+                url=article_url,
+                summary="Résumé.",
+                published_at=published,
+            )
+        )
+        self.db.commit()
+        with tempfile.TemporaryDirectory() as directory, patch("app.services.PDF_DIR", Path(directory)):
+            edition = generate_edition(self.db, edition_date=today, weather_provider=TestWeather())
+            from pypdf import PdfReader
+
+            reader = PdfReader(edition.pdf_path)
+            text = " ".join(page.extract_text() or "" for page in reader.pages)
+            embedded_images = [image for page in reader.pages for image in page.images]
+        self.assertIn("Un article avec un QR code", text)
+        self.assertNotIn(article_url, text)
+        self.assertTrue(embedded_images)
+
+    def test_multiple_weather_locations_render_below_title(self):
+        today = datetime.now(ZoneInfo("Europe/Paris")).date()
+        locations = [
+            {"name": "Paris", "latitude": 48.8566, "longitude": 2.3522},
+            {"name": "Lyon", "latitude": 45.764, "longitude": 4.8357},
+        ]
+        self.db.add(Setting(key="weather_locations", value=json.dumps(locations)))
+        self.db.commit()
+        weather = TestWeather()
+        with tempfile.TemporaryDirectory() as directory, patch("app.services.PDF_DIR", Path(directory)):
+            edition = generate_edition(self.db, edition_date=today, weather_provider=weather)
+            from pypdf import PdfReader
+
+            text = " ".join(page.extract_text() or "" for page in PdfReader(edition.pdf_path).pages)
+        self.assertEqual(weather.locations, ["Paris", "Lyon"])
+        self.assertLess(text.index("Le Quotidien"), text.index("Paris"))
+        self.assertIn("Lyon", text)
+        self.assertIn("MATIN", text.upper())
+        self.assertIn("APRÈS-MIDI", text.upper().replace("\n", ""))
 
 
 if __name__ == "__main__":

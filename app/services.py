@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import io
 import json
 import logging
 from collections import Counter
@@ -15,7 +17,7 @@ from weasyprint import CSS, HTML
 from app.config import PDF_DIR, TIMEZONE
 from app.models import Article, Edition, Feed, Setting
 from app.newsroom.selection import CandidateArticle, FeedQuota, select_articles
-from app.weather import OpenMeteoProvider, WeatherProvider
+from app.weather import OpenWeatherProvider, WeatherProvider
 
 logger = logging.getLogger(__name__)
 TEMPLATE_DIR = Path(__file__).parent / "templates"
@@ -31,10 +33,26 @@ DEFAULT_SETTINGS = {
     "period_days": "1",
     "paper_size": "A4",
     "columns": "2",
+    "max_pages": "4",
     "show_images": "false",
     "show_descriptions": "true",
-    "show_source_url": "true",
+    "show_source_url": "false",
+    "show_qr_codes": "false",
+    "weather_locations": '[{"name":"Paris","latitude":48.8566,"longitude":2.3522}]',
 }
+
+
+def _qr_data_uri(url: str) -> str:
+    import qrcode
+    from qrcode.constants import ERROR_CORRECT_L
+
+    code = qrcode.QRCode(error_correction=ERROR_CORRECT_L, box_size=2, border=1)
+    code.add_data(url)
+    code.make(fit=True)
+    image = code.make_image(fill_color="black", back_color="white")
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
 
 
 def settings_dict(db: Session) -> dict[str, str]:
@@ -50,9 +68,10 @@ def save_settings(db: Session, values: dict[str, str]) -> None:
             continue
         setting = db.get(Setting, key)
         if setting is None:
-            db.add(Setting(key=key, value=str(value)))
+            stored_value = json.dumps(value, ensure_ascii=False) if isinstance(value, (list, dict)) else str(value)
+            db.add(Setting(key=key, value=stored_value))
         else:
-            setting.value = str(value)
+            setting.value = json.dumps(value, ensure_ascii=False) if isinstance(value, (list, dict)) else str(value)
     db.commit()
 
 
@@ -124,21 +143,28 @@ def generate_edition(
         image_dir = PDF_DIR / "assets"
         for article in selected_rows[:8]:
             article.local_image = download_image(article.image_url, image_dir)
-    grouped: dict[str, list[dict]] = {section: [] for section in SECTIONS}
-    front_ids: set[int] = set()
-    for article in selected_rows:
-        feed = feeds_by_id[article.feed_id]
-        section = classify(article, feed)
-        if len(grouped["À la une"]) < 3:
-            grouped["À la une"].append({"article": article, "feed": feed})
-            front_ids.add(article.id)
-        if article.id in front_ids:
-            continue
-        grouped[section].append({"article": article, "feed": feed})
-    grouped = {section: items for section, items in grouped.items() if items}
-    weather = (weather_provider or OpenMeteoProvider()).current(
-        settings["city"], float(settings["latitude"]), float(settings["longitude"])
-    )
+    try:
+        weather_locations = json.loads(settings["weather_locations"])
+    except (KeyError, json.JSONDecodeError):
+        weather_locations = []
+    if not weather_locations:
+        weather_locations = [
+            {"name": settings["city"], "latitude": settings["latitude"], "longitude": settings["longitude"]}
+        ]
+    provider = weather_provider or OpenWeatherProvider()
+    weather_reports = [
+        provider.forecast(
+            location["name"],
+            float(location["latitude"]),
+            float(location["longitude"]),
+            edition_date,
+            timezone_name,
+        )
+        for location in weather_locations[:10]
+    ]
+    if settings.get("show_qr_codes") == "true":
+        for article in selected_rows:
+            article.qr_code = _qr_data_uri(article.url)
     report_data = {
         "feeds_analyzed": len(feeds),
         "articles_retrieved": len(articles),
@@ -154,7 +180,7 @@ def generate_edition(
             if item.published_at
         ),
         "articles_selected": len(selected_rows),
-        "sections": len(grouped),
+        "sections": len({classify(article, feeds_by_id[article.feed_id]) for article in selected_rows}),
         "by_feed": dict(Counter(feeds_by_id[item.feed_id].name for item in selected_rows)),
         "minimum_reached": len(selected_rows) >= int(settings["minimum_articles"]),
     }
@@ -163,19 +189,39 @@ def generate_edition(
     PDF_DIR.mkdir(parents=True, exist_ok=True)
     logger.info("PDF generation started", extra={"edition": edition_date.isoformat(), "articles": len(selected_rows)})
     try:
-        html_content = environment.get_template("newspaper.html").render(
-            name=settings["newspaper_name"],
-            edition_date=edition_date,
-            articles=selected_rows,
-            groups=grouped,
-            weather=weather,
-            settings=settings,
-            feeds=feeds_by_id,
-            timezone_name=timezone_name,
-        )
-        rendered = HTML(string=html_content, base_url=str(TEMPLATE_DIR)).render(
-            stylesheets=[CSS(filename=str(TEMPLATE_DIR / "newspaper.css"))]
-        )
+        ranked_rows = selected_rows
+        limit = max(1, int(settings["max_pages"]))
+        low, high = 0, len(ranked_rows)
+        best_rendered = None
+        best_count = -1
+        while low <= high:
+            article_count = (low + high) // 2
+            selected_rows = ranked_rows[:article_count]
+            html_content = environment.get_template("newspaper.html").render(
+                name=settings["newspaper_name"],
+                edition_date=edition_date,
+                articles=selected_rows,
+                weather=weather_reports,
+                settings=settings,
+                feeds=feeds_by_id,
+                timezone_name=timezone_name,
+            )
+            rendered = HTML(string=html_content, base_url=str(TEMPLATE_DIR)).render(
+                stylesheets=[CSS(filename=str(TEMPLATE_DIR / "newspaper.css"))]
+            )
+            if len(rendered.pages) <= limit:
+                best_rendered = rendered
+                best_count = article_count
+                low = article_count + 1
+            else:
+                high = article_count - 1
+        if best_rendered is None:
+            raise ValueError("La météo et l’en-tête dépassent à eux seuls la limite de pages.")
+        selected_rows = ranked_rows[:best_count]
+        rendered = best_rendered
+        report_data["articles_selected"] = len(selected_rows)
+        report_data["by_feed"] = dict(Counter(feeds_by_id[item.feed_id].name for item in selected_rows))
+        report_data["minimum_reached"] = len(selected_rows) >= int(settings["minimum_articles"])
         rendered.write_pdf(output_path)
     except Exception as exc:
         if existing is None:

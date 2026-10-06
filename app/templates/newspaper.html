@@ -6,69 +6,39 @@
 </head>
 <body>
   <header class="masthead">
-    <div class="edition-line"><span>ÉDITION DU MATIN</span><span>{{ edition_date.strftime('%A %d %B %Y') }}</span><span>Nº {{ edition_date.strftime('%Y%m%d') }}</span></div>
+    <div class="edition-line"><span>{{ edition_date.strftime('%A %d %B %Y') }}</span><span>Nº {{ edition_date.strftime('%Y%m%d') }}</span></div>
     <h1>{{ name }}</h1>
-    <div class="motto">L'essentiel du jour, avec perspective</div>
-    <div class="rule thick"></div>
+    <div class="masthead-rule"></div>
   </header>
-
-  <main>
-    <section class="front-page">
-      <div class="front-heading"><span>À LA UNE</span><span>LES FAITS MARQUANTS</span></div>
-      {% if groups.get('À la une') %}
-        {% set lead = groups['À la une'][0] %}
-        <article class="lead">
-          <div class="kicker">{{ lead.feed.category }} · {{ lead.feed.name }}</div>
-          <h2>{{ lead.article.title }}</h2>
-          {% if lead.article.local_image %}<img class="lead-image" src="{{ lead.article.local_image }}" alt="">{% endif %}
-          {% if settings.get('show_descriptions') == 'true' and lead.article.summary %}<p class="standfirst">{{ lead.article.summary }}</p>{% endif %}
-          <p class="byline">{{ lead.feed.name }}{% if lead.article.author %} · {{ lead.article.author }}{% endif %}</p>
-          {% if settings.get('show_source_url') == 'true' %}<a class="source-url" href="{{ lead.article.url }}">{{ lead.article.url }}</a>{% endif %}
-        </article>
-      {% else %}
-        <article class="lead"><div class="kicker">ÉDITION DU JOUR</div><h2>Votre journal prend forme.</h2><p class="standfirst">Aucun article daté de la veille n'est disponible. Vérifiez les flux RSS ou élargissez la période de recherche.</p></article>
-      {% endif %}
-      <div class="front-grid">
-        <div class="front-stories">
-          {% for item in groups.get('À la une', [])[1:] %}
-          <article class="compact">
-            <div class="kicker">{{ item.feed.name }}</div><h3>{{ item.article.title }}</h3>
-            {% if item.article.summary %}<p>{{ item.article.summary }}</p>{% endif %}
-          </article>
-          {% endfor %}
-          {% if not groups.get('À la une') %}<p>Les articles seront présentés ici dès la prochaine récupération.</p>{% endif %}
+  <section class="weather-strip" aria-label="Prévisions météo">
+    {% for location in weather %}
+    <article class="weather-city">
+      <h2>{{ location.city }}</h2>
+      <div class="weather-periods">
+        {% for label, period in [('Matin', location.morning), ('Après-midi', location.afternoon)] %}
+        <div class="weather-period">
+          <span class="weather-label">{{ label }}</span>
+          <strong>{% if period.temperature is not none %}{{ '%.0f'|format(period.temperature) }}°{% else %}—{% endif %}</strong>
+          <span class="weather-condition">{{ period.condition }}</span>
+          <span class="weather-risk">Risque {% if period.precipitation_probability is not none %}{{ period.precipitation_probability }} %{% else %}—{% endif %}</span>
         </div>
-        <aside class="weather">
-          <div class="kicker">LE TEMPS DU JOUR</div><h3>{{ weather.city }}</h3>
-          <p class="temperature">{% if weather.temperature is not none %}{{ '%.0f'|format(weather.temperature) }}°{% else %}—{% endif %}</p>
-          <p>{{ weather.condition }}</p>
-          {% if weather.minimum is not none and weather.maximum is not none %}<p class="weather-range">Min. {{ '%.0f'|format(weather.minimum) }}° <span>Max. {{ '%.0f'|format(weather.maximum) }}°</span></p>{% endif %}
-          {% if weather.precipitation_probability is not none %}<p class="weather-range">Risque de pluie {{ weather.precipitation_probability }} %</p>{% endif %}
-          {% if not weather.temperature %}<p class="muted">Données momentanément indisponibles</p>{% endif %}
-        </aside>
-      </div>
-      <div class="cover-bottom"><span>{{ articles|length }} articles sélectionnés</span><span>Fuseau {{ timezone_name }}</span></div>
-    </section>
-
-    {% for section, items in groups.items() if section != 'À la une' %}
-    <section class="section-page">
-      <div class="section-heading"><span>LE QUOTIDIEN</span><span>{{ edition_date.strftime('%d.%m.%Y') }}</span></div>
-      <h2 class="section-title">{{ section }}</h2>
-      <div class="article-columns" style="columns: {{ settings.columns }};">
-        {% for item in items %}
-        <article class="story">
-          <div class="kicker">{{ item.feed.name }}{% if item.article.author %} · {{ item.article.author }}{% endif %}</div>
-          <h3>{{ item.article.title }}</h3>
-          {% if item.article.local_image %}<img class="story-image" src="{{ item.article.local_image }}" alt="">{% endif %}
-          {% if settings.get('show_descriptions') == 'true' and item.article.summary %}<p>{{ item.article.summary }}</p>{% endif %}
-          <div class="story-meta">{{ item.feed.category }}{% if item.article.published_at %} · {{ item.article.published_at.strftime('%H:%M') }}{% endif %}</div>
-          {% if settings.get('show_source_url') == 'true' %}<a class="source-url" href="{{ item.article.url }}">Lire à la source ↗</a>{% endif %}
-        </article>
         {% endfor %}
       </div>
-    </section>
+    </article>
     {% endfor %}
+  </section>
+  <main class="article-list" style="columns: {{ settings.columns }};">
+    {% for article in articles %}
+    <article class="story">
+      <div class="story-copy">
+        <h2>{{ article.title }}</h2>
+        {% if settings.get('show_descriptions') == 'true' and article.summary %}<p>{{ article.summary }}</p>{% endif %}
+        <div class="story-source">{{ feeds[article.feed_id].name }}{% if article.author %} · {{ article.author }}{% endif %}</div>
+        {% if article.local_image %}<img class="story-image" src="{{ article.local_image }}" alt="">{% endif %}
+      </div>
+      {% if settings.get('show_qr_codes') == 'true' and article.qr_code %}<a class="story-qr" href="{{ article.url }}" aria-label="Ouvrir l’article de {{ article.title }}"><img src="{{ article.qr_code }}" alt="QR code"></a>{% endif %}
+    </article>
+    {% else %}<p class="empty-state">Aucun article retenu pour cette édition.</p>{% endfor %}
   </main>
-  <footer>{{ name }} · Édition du {{ edition_date.strftime('%d.%m.%Y') }} · Revue de presse, sources citées</footer>
 </body>
 </html>

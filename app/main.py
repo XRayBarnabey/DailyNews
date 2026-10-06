@@ -81,19 +81,32 @@ class GenerateInput(BaseModel):
     force: bool = False
 
 
-class SettingsInput(BaseModel):
-    newspaper_name: str = Field(min_length=1, max_length=100)
-    timezone: str
-    city: str = Field(min_length=1, max_length=100)
+class WeatherLocationInput(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
+
+
+class SettingsInput(BaseModel):
+    newspaper_name: str = Field(min_length=1, max_length=100)
+    timezone: str = TIMEZONE
+    city: str = "Paris"
+    latitude: float = Field(default=48.8566, ge=-90, le=90)
+    longitude: float = Field(default=2.3522, ge=-180, le=180)
     maximum_articles: int = Field(ge=1, le=200)
     minimum_articles: int = Field(ge=0, le=200)
     period_days: int = Field(ge=1, le=7)
     columns: int = Field(ge=1, le=3)
+    max_pages: int = Field(default=4, ge=1, le=32)
+    weather_locations: list[WeatherLocationInput] = Field(
+        default_factory=lambda: [WeatherLocationInput(name="Paris", latitude=48.8566, longitude=2.3522)],
+        min_length=1,
+        max_length=10,
+    )
     show_images: bool = False
     show_descriptions: bool = True
-    show_source_url: bool = True
+    show_source_url: bool = False
+    show_qr_codes: bool = False
 
 
 class ScheduleInput(BaseModel):
@@ -260,7 +273,24 @@ def feed_test(feed_id: int, db: Session = Depends(get_db)):
 
 @web.get("/settings", response_class=HTMLResponse)
 def settings_page(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request, "settings.html", {"active": "settings", "settings": settings_dict(db)})
+    settings = settings_dict(db)
+    try:
+        weather_locations = json.loads(settings["weather_locations"])
+    except (KeyError, json.JSONDecodeError):
+        weather_locations = []
+    if not weather_locations:
+        weather_locations = [
+            {
+                "name": settings.get("city", "Paris"),
+                "latitude": settings.get("latitude", "48.8566"),
+                "longitude": settings.get("longitude", "2.3522"),
+            }
+        ]
+    return templates.TemplateResponse(
+        request,
+        "settings.html",
+        {"active": "settings", "settings": settings, "weather_locations": weather_locations},
+    )
 
 
 @web.post("/settings")
@@ -268,42 +298,48 @@ def settings_save(
     request: Request,
     newspaper_name: str = Form(),
     timezone: str = Form(TIMEZONE),
-    city: str = Form(),
-    latitude: float = Form(48.8566),
-    longitude: float = Form(2.3522),
+    weather_locations_json: str = Form("[]"),
     maximum_articles: int = Form(32),
     minimum_articles: int = Form(12),
     period_days: int = Form(1),
     columns: int = Form(2),
+    max_pages: int = Form(4),
     show_images: bool = Form(False),
     show_descriptions: bool = Form(True),
-    show_source_url: bool = Form(True),
+    show_qr_codes: bool = Form(False),
     db: Session = Depends(get_db),
 ):
     try:
         from zoneinfo import ZoneInfo
 
         ZoneInfo(timezone)
+        location_data = json.loads(weather_locations_json)
+        if not location_data:
+            raise ValueError("Ajoutez au moins une localisation météo.")
+        locations = [WeatherLocationInput.model_validate(location) for location in location_data]
+        first_location = locations[0]
         values = SettingsInput(
             newspaper_name=newspaper_name,
             timezone=timezone,
-            city=city,
-            latitude=latitude,
-            longitude=longitude,
+            city=first_location.name,
+            latitude=first_location.latitude,
+            longitude=first_location.longitude,
             maximum_articles=maximum_articles,
             minimum_articles=minimum_articles,
             period_days=period_days,
             columns=columns,
+            max_pages=max_pages,
+            weather_locations=locations,
             show_images=show_images,
             show_descriptions=show_descriptions,
-            show_source_url=show_source_url,
+            show_qr_codes=show_qr_codes,
         )
     except Exception as exc:
         raise HTTPException(422, str(exc)) from exc
     save_settings(
         db,
         {
-            key: str(value).lower() if isinstance(value, bool) else str(value)
+            key: value if key == "weather_locations" else str(value).lower() if isinstance(value, bool) else str(value)
             for key, value in values.model_dump().items()
         },
     )
@@ -595,7 +631,9 @@ def api_edition_print(edition_id: int, db: Session = Depends(get_db)):
 
 @api.get("/settings")
 def api_settings(db: Session = Depends(get_db)):
-    return settings_dict(db)
+    values = settings_dict(db)
+    values["weather_locations"] = json.loads(values["weather_locations"])
+    return values
 
 
 @api.put("/settings")
@@ -609,11 +647,11 @@ def api_save_settings(data: SettingsInput, db: Session = Depends(get_db)):
     save_settings(
         db,
         {
-            key: str(value).lower() if isinstance(value, bool) else str(value)
+            key: value if key == "weather_locations" else str(value).lower() if isinstance(value, bool) else str(value)
             for key, value in data.model_dump().items()
         },
     )
-    return settings_dict(db)
+    return api_settings(db)
 
 
 @api.get("/schedule")

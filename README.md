@@ -10,7 +10,7 @@ cd dailynews
 cp .env.example .env
 ```
 
-Modifiez `ADMIN_PASSWORD` dans `.env` avant d’exposer l’application. Puis démarrez-la :
+Modifiez `ADMIN_PASSWORD` et renseignez `OPENWEATHER_API_KEY` dans `.env` avant d’exposer l’application. La clé n’est pas conservée dans Git. Puis démarrez-la :
 
 ```bash
 docker compose up -d
@@ -26,7 +26,9 @@ Depuis le tableau de bord, utilisez **Récupérer les flux** puis **Générer un
 
 La page **Flux RSS** permet d’ajouter, tester, activer, modifier et supprimer les sources. Le flux `mock://demo`, livré à l’installation, sert quatre articles fictifs datés de la veille sans accès réseau. Il peut être récupéré et généré comme n’importe quel flux.
 
-La page **Journal** règle le titre, la ville et les coordonnées météo, le fuseau horaire, la période de recherche, les limites d’articles, les colonnes et les informations affichées. La météo utilise Open-Meteo sans clé ; une panne affiche « Météo indisponible » et ne bloque pas le PDF.
+La page **Journal** permet d’ajouter jusqu’à dix villes avec leurs coordonnées. OpenWeather fournit pour chacune la température, les conditions et le risque de précipitations du matin et de l’après-midi. La clé se configure dans `.env`; si le fournisseur est indisponible, les champs météo affichent un tiret sans empêcher le PDF.
+
+Le PDF place le bandeau météo immédiatement sous le titre puis les articles résumés en une, deux ou trois colonnes, sans rubriques ni URL imprimées. Les QR codes vers les articles sont optionnels. Le plafond de pages se règle dans **Journal** : par exemple `2` pour une feuille recto-verso, `4` pour deux feuilles. Si nécessaire, les articles les moins bien classés sont retirés pour respecter le plafond sans couper le document.
 
 La page **Planification** définit séparément les heures de collecte, de génération et d’impression, les jours actifs, l’activation automatique et les options CUPS. Le réglage initial propose 05:30, 06:00 et 06:10 tous les jours ; l’impression automatique est désactivée tant qu’aucune imprimante n’est sélectionnée.
 
@@ -38,7 +40,7 @@ La sélection est isolée dans `app/newsroom/selection.py`, testée sans base ni
 2. Les URL sont normalisées (fragment et paramètres de suivi supprimés), puis les titres sont normalisés pour fusionner les doublons syndiqués. La copie provenant du flux dont le score éditorial est supérieur est conservée.
 3. Les minima de flux sont alloués en premier, par priorité puis par identifiant, dans la limite du volume disponible.
 4. Le reste du tirage est réparti proportionnellement aux poids, en respectant les disponibilités et maxima. Les places d’un flux épuisé ou plafonné sont redistribuées ; les poids tous nuls deviennent égaux.
-5. Le classement interne favorise priorité, poids, fraîcheur et qualité du résumé. Jusqu’à trois articles ouvrent la une ; les autres sont classés par mots-clés ou par rubrique configurée sur le flux.
+5. Le classement interne favorise priorité, poids, fraîcheur et qualité du résumé. Les articles retenus sont présentés dans l’ordre éditorial, sans intertitres de rubrique.
 
 Le rapport de génération expose les volumes analysés, dans la période, sélectionnés, les rubriques et la distribution par source. Les résumés RSS sont du texte nettoyé ; le contenu intégral des articles sources n’est pas aspiré.
 
@@ -81,6 +83,7 @@ python -m app.cli print
 | `LOG_LEVEL` | `INFO` | Niveau des journaux JSON |
 | `WEB_PORT` | `8000` | Port publié par Compose |
 | `CUPS_SERVER`, `CUPS_PORT` | local, `631` | Serveur CUPS optionnel |
+| `OPENWEATHER_API_KEY` | vide | Clé privée du fournisseur météo OpenWeather |
 
 Les réglages éditoriaux et le planning sont ensuite administrés dans l’interface. Les journaux structurés sont envoyés sur la sortie du conteneur et écrits avec rotation dans `/data/logs/dailynews.log`.
 
@@ -140,7 +143,7 @@ app/main.py                 FastAPI, authentification, HTML et API
 app/models.py               Flux, articles, éditions, réglages, planning, impressions
 app/rss.py                  Parsing RSS, assainissement et protections réseau
 app/newsroom/selection.py   Fenêtre de dates, déduplication, quotas pondérés
-app/weather.py              Interface WeatherProvider et Open-Meteo
+app/weather.py              Interface WeatherProvider et prévisions OpenWeather
 app/services.py             Classification, composition et génération PDF
 app/templates/              Interface Jinja et gabarit presse
 app/scheduler.py            Jobs indépendants de collecte, génération, impression
@@ -148,4 +151,4 @@ app/printing.py             Interface PrintProvider et client CUPS
 app/cli.py                  Commandes opérationnelles
 ```
 
-Les PDF sont au format A4, noir et blanc, à pagination dynamique avec CSS d’impression, en-tête et folio. La première page accueille la une et la météo ; les pages suivantes rangent les articles par rubrique en colonnes sans casser un article entre deux colonnes lorsque la place le permet.
+Les PDF sont au format A4, noir et blanc, avec en-tête, bandeau météo horizontal et folios. Les articles s’écoulent en colonnes ; un plafond de pages réduit la sélection éditoriale plutôt que de tronquer le PDF.

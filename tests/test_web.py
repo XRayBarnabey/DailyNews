@@ -1,4 +1,5 @@
 import importlib
+import json
 import tempfile
 import unittest
 from datetime import date
@@ -86,6 +87,59 @@ class WebTests(unittest.TestCase):
             with self.session_factory() as session:
                 self.assertIsNone(session.get(Edition, edition_id))
                 self.assertEqual(session.query(PrintJob).filter_by(edition_id=edition_id).count(), 0)
+
+    def test_settings_api_saves_multiple_weather_locations_and_page_options(self):
+        payload = {
+            "newspaper_name": "Le Quotidien",
+            "timezone": "Europe/Paris",
+            "maximum_articles": 30,
+            "minimum_articles": 5,
+            "period_days": 1,
+            "columns": 3,
+            "max_pages": 2,
+            "show_qr_codes": True,
+            "show_descriptions": True,
+            "weather_locations": [
+                {"name": "Paris", "latitude": 48.8566, "longitude": 2.3522},
+                {"name": "Lyon", "latitude": 45.764, "longitude": 4.8357},
+            ],
+        }
+        response = self.client.put("/api/settings", auth=("admin", "change-me"), json=payload)
+        self.assertEqual(response.status_code, 200)
+        saved = response.json()
+        self.assertEqual(saved["max_pages"], "2")
+        self.assertEqual(json.loads(json.dumps(saved["weather_locations"])), payload["weather_locations"])
+        self.assertEqual(saved["columns"], "3")
+        self.assertEqual(saved["show_qr_codes"], "true")
+
+    def test_settings_form_persists_weather_locations_and_page_options(self):
+        locations = [
+            {"name": "Paris", "latitude": 48.8566, "longitude": 2.3522},
+            {"name": "Lyon", "latitude": 45.764, "longitude": 4.8357},
+        ]
+        response = self.client.post(
+            "/settings",
+            auth=("admin", "change-me"),
+            data={
+                "newspaper_name": "Le Quotidien",
+                "timezone": "Europe/Paris",
+                "weather_locations_json": json.dumps(locations),
+                "maximum_articles": "30",
+                "minimum_articles": "5",
+                "period_days": "1",
+                "columns": "3",
+                "max_pages": "2",
+                "show_qr_codes": "on",
+                "show_descriptions": "on",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303)
+        saved = self.client.get("/api/settings", auth=("admin", "change-me")).json()
+        self.assertEqual(saved["weather_locations"], locations)
+        self.assertEqual(saved["max_pages"], "2")
+        self.assertEqual(saved["columns"], "3")
+        self.assertEqual(saved["show_qr_codes"], "true")
 
 
 if __name__ == "__main__":

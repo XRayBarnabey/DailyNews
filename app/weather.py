@@ -3,70 +3,92 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
+from datetime import UTC, date, datetime, time
 from typing import Protocol
 from urllib.parse import urlencode
 from urllib.request import urlopen
+from zoneinfo import ZoneInfo
+
+from app.config import OPENWEATHER_API_KEY
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class WeatherPeriod:
+    temperature: float | None = None
+    precipitation_probability: int | None = None
+    condition: str = "Prévision indisponible"
 
 
 @dataclass(frozen=True, slots=True)
 class Weather:
     city: str
     date: str
-    temperature: float | None = None
-    minimum: float | None = None
-    maximum: float | None = None
-    condition: str = "Météo indisponible"
-    precipitation_probability: int | None = None
+    morning: WeatherPeriod
+    afternoon: WeatherPeriod
 
 
 class WeatherProvider(Protocol):
-    def current(self, city: str, latitude: float, longitude: float) -> Weather: ...
+    def forecast(
+        self, city: str, latitude: float, longitude: float, forecast_date: date, timezone_name: str
+    ) -> Weather: ...
 
 
-class OpenMeteoProvider:
-    def current(self, city: str, latitude: float, longitude: float) -> Weather:
+class OpenWeatherProvider:
+    def __init__(self, api_key: str | None = None):
+        self.api_key = OPENWEATHER_API_KEY if api_key is None else api_key
+
+    def forecast(
+        self, city: str, latitude: float, longitude: float, forecast_date: date, timezone_name: str
+    ) -> Weather:
+        unavailable = Weather(city, forecast_date.isoformat(), WeatherPeriod(), WeatherPeriod())
+        if not self.api_key:
+            logger.warning("OpenWeather API key is not configured", extra={"city": city})
+            return unavailable
         query = urlencode(
             {
-                "latitude": latitude,
-                "longitude": longitude,
-                "current": "temperature_2m,weather_code",
-                "daily": "temperature_2m_min,temperature_2m_max,precipitation_probability_max",
-                "forecast_days": 1,
-                "timezone": "auto",
+                "lat": latitude,
+                "lon": longitude,
+                "appid": self.api_key,
+                "units": "metric",
+                "lang": "fr",
             }
         )
         try:
-            with urlopen(f"https://api.open-meteo.com/v1/forecast?{query}", timeout=5) as response:
-                data = json.loads(response.read(200_000))
-            current, daily = data.get("current", {}), data.get("daily", {})
-            code = int(current.get("weather_code", -1))
-            conditions = {
-                0: "Ciel dégagé",
-                1: "Peu nuageux",
-                2: "Éclaircies",
-                3: "Couvert",
-                45: "Brouillard",
-                48: "Brouillard givrant",
-                51: "Bruine",
-                61: "Pluie faible",
-                63: "Pluie",
-                65: "Forte pluie",
-                71: "Neige faible",
-                73: "Neige",
-                80: "Averses",
-                95: "Orage",
-            }
+            with urlopen(f"https://api.openweathermap.org/data/2.5/forecast?{query}", timeout=6) as response:
+                data = json.loads(response.read(500_000))
+            location_timezone = ZoneInfo(timezone_name)
+            forecasts = []
+            for item in data.get("list", []):
+                local_time = datetime.fromtimestamp(item["dt"], UTC).astimezone(location_timezone)
+                if local_time.date() == forecast_date:
+                    forecasts.append((local_time, item))
+            morning = self._period(forecasts, forecast_date, time(9), location_timezone, (6, 12))
+            afternoon = self._period(forecasts, forecast_date, time(15), location_timezone, (12, 21))
             return Weather(
                 city,
-                daily.get("time", [""])[0],
-                current.get("temperature_2m"),
-                (daily.get("temperature_2m_min") or [None])[0],
-                (daily.get("temperature_2m_max") or [None])[0],
-                conditions.get(code, "Conditions variables"),
-                (daily.get("precipitation_probability_max") or [None])[0],
+                forecast_date.isoformat(),
+                morning,
+                afternoon,
             )
         except Exception as exc:
-            logger.warning("Weather provider unavailable", extra={"error": str(exc)})
-            return Weather(city, "", condition="Météo indisponible")
+            logger.warning("OpenWeather provider unavailable", extra={"city": city, "error": type(exc).__name__})
+            return unavailable
+
+    @staticmethod
+    def _period(forecasts, forecast_date, target_time, zone, hour_range) -> WeatherPeriod:
+        start = datetime.combine(forecast_date, time(hour_range[0]), tzinfo=zone)
+        end = datetime.combine(forecast_date, time(hour_range[1]), tzinfo=zone)
+        candidates = [entry for entry in forecasts if start <= entry[0] <= end]
+        if not candidates:
+            return WeatherPeriod()
+        target = datetime.combine(forecast_date, target_time, tzinfo=zone)
+        _, item = min(candidates, key=lambda entry: abs(entry[0] - target))
+        weather = item.get("weather", [{}])[0]
+        probability = item.get("pop")
+        return WeatherPeriod(
+            temperature=item.get("main", {}).get("temp"),
+            precipitation_probability=round(probability * 100) if probability is not None else None,
+            condition=weather.get("description", "Conditions variables").capitalize(),
+        )
