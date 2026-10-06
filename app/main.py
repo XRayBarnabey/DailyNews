@@ -5,11 +5,14 @@ import io
 import json
 import logging
 from contextlib import asynccontextmanager
+from dataclasses import asdict
+from datetime import datetime
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlencode
 from urllib.request import Request as URLRequest
 from urllib.request import urlopen
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import (
     APIRouter,
@@ -41,6 +44,7 @@ from app.printing import CupsPrintProvider
 from app.rss import fetch_all, fetch_feed
 from app.scheduler import configure_jobs, start_scheduler, stop_scheduler
 from app.services import generate_edition, save_settings, settings_dict
+from app.weather import OpenMeteoProvider
 
 configure_logging(LOG_LEVEL)
 logger = logging.getLogger(__name__)
@@ -370,6 +374,22 @@ def api_weather_cities(q: str = Query(min_length=2, max_length=80)):
     except Exception as exc:
         logger.warning("Open-Meteo city search failed", extra={"error": type(exc).__name__})
         return []
+
+
+@api.get("/weather/preview")
+def api_weather_preview(
+    name: str = Query(min_length=1, max_length=100),
+    latitude: float = Query(ge=-90, le=90),
+    longitude: float = Query(ge=-180, le=180),
+    timezone: str = Query(default="auto", max_length=64),
+    db: Session = Depends(get_db),
+):
+    try:
+        zone = ZoneInfo(timezone) if timezone != "auto" else ZoneInfo(TIMEZONE)
+    except ZoneInfoNotFoundError:
+        raise HTTPException(422, "Fuseau horaire invalide") from None
+    provider = OpenMeteoProvider(settings_dict(db).get("meteo_api_key") or None)
+    return asdict(provider.forecast(name, latitude, longitude, datetime.now(zone).date(), timezone))
 
 
 @web.post("/settings/logo")

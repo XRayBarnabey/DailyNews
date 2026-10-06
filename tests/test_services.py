@@ -252,6 +252,33 @@ class ServiceTests(unittest.TestCase):
         self.assertIn("MATIN", text.upper())
         self.assertIn("APRÈS-MIDI", text.upper().replace("\n", ""))
 
+    def test_logo_and_separate_fonts_are_embedded_in_pdf(self):
+        today = datetime.now(ZoneInfo("Europe/Paris")).date()
+        feed = Feed(name="Revue", url="mock://demo", category="Divers", weight=1)
+        self.db.add_all(
+            [
+                feed,
+                Setting(key="title_font", value="DejaVu Serif"),
+                Setting(key="article_font", value="DejaVu Sans"),
+            ]
+        )
+        self.db.commit()
+        with tempfile.TemporaryDirectory() as directory, patch("app.services.PDF_DIR", Path(directory)):
+            from PIL import Image
+
+            logo_path = Path(directory) / "branding" / "logo.png"
+            logo_path.parent.mkdir(parents=True)
+            Image.new("RGBA", (40, 16), (255, 0, 0, 0)).save(logo_path)
+            edition = generate_edition(self.db, edition_date=today, weather_provider=TestWeather())
+            reader = PdfReader(edition.pdf_path)
+            page = reader.pages[0]
+            images = [image for page in reader.pages for image in page.images]
+            font_names = " ".join(
+                str(font.get("/BaseFont", "")) for font in page.get("/Resources").get("/Font").values()
+            )
+        self.assertTrue(images)
+        self.assertIn("DejaVu-Serif", font_names)
+        self.assertIn("DejaVu-Sans", font_names)
 
 if __name__ == "__main__":
     unittest.main()

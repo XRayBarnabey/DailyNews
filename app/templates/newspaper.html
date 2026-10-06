@@ -2,59 +2,50 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>{{ name }} — {{ edition_date.strftime('%d %B %Y') }}</title>
+  <title>{{ name }} — {{ french_date }}</title>
 </head>
-<body>
+<body style="--title-font: '{{ settings.title_font }}'; --article-font: '{{ settings.article_font }}';">
   <header class="masthead">
-    <div class="edition-line"><div class="edition-meta"><span>{{ french_date }}</span>{% if name_day %}<span class="name-day">Fête du jour : {{ name_day }}</span>{% endif %}</div>{% if logo_data_uri %}<img class="masthead-logo" src="{{ logo_data_uri }}" alt="Logo {{ name }}">{% endif %}</div>
-    <!doctype html>
-    <html lang="fr">
-    <head>
-      <meta charset="utf-8">
-      <title>{{ name }} — {{ french_date }}</title>
-    </head>
-    <body style="--title-font: '{{ settings.title_font }}'; --article-font: '{{ settings.article_font }}';">
-      <header class="masthead">
-        <div class="edition-line">
-          <div class="edition-meta">
-            <span>{{ french_date }}</span>
-            {% if name_day %}<span class="name-day">Fête du jour : {{ name_day }}</span>{% endif %}
-          </div>
-          {% if logo_data_uri %}<img class="masthead-logo" src="{{ logo_data_uri }}" alt="Logo {{ name }}">{% endif %}
+    <div class="edition-line">
+      <div class="edition-meta">
+        <span>{{ french_date }}</span>
+        {% if name_day %}<span class="name-day">Fête du jour : {{ name_day }}</span>{% endif %}
+      </div>
+      {% if logo_data_uri %}<img class="masthead-logo" src="{{ logo_data_uri }}" alt="Logo {{ name }}">{% endif %}
+    </div>
+    <h1>{{ name }}</h1>
+    <div class="masthead-rule"></div>
+  </header>
+  <section class="weather-strip" aria-label="Prévisions météo">
+    {% for location in weather %}
+    <article class="weather-city">
+      <h2>{{ location.city }}</h2>
+      <div class="weather-periods">
+        {% for label, period in [('Matin', location.morning), ('Après-midi', location.afternoon)] %}
+        <div class="weather-period">
+          <span class="weather-label">{{ label }}</span>
+          <span class="weather-icon" aria-hidden="true">{{ period.icon }}</span>
+          <strong>{% if period.temperature is not none %}{{ '%.0f'|format(period.temperature) }}°{% else %}—{% endif %}</strong>
+          <span class="weather-condition">{{ period.condition }}</span>
+          <span class="weather-risk">Pluie {% if period.precipitation_probability is not none %}{{ period.precipitation_probability }} %{% else %}—{% endif %}</span>
         </div>
-        <h1>{{ name }}</h1>
-        <div class="masthead-rule"></div>
-      </header>
-      <section class="weather-strip" aria-label="Prévisions météo">
-        {% for location in weather %}
-        <article class="weather-city">
-          <h2>{{ location.city }}</h2>
-          <div class="weather-periods">
-            {% for label, period in [('Matin', location.morning), ('Après-midi', location.afternoon)] %}
-            <div class="weather-period">
-              <span class="weather-label">{{ label }}</span>
-              <span class="weather-icon" aria-hidden="true">{{ period.icon }}</span>
-              <strong>{% if period.temperature is not none %}{{ '%.0f'|format(period.temperature) }}°{% else %}—{% endif %}</strong>
-              <span class="weather-condition">{{ period.condition }}</span>
-              <span class="weather-risk">Pluie {% if period.precipitation_probability is not none %}{{ period.precipitation_probability }} %{% else %}—{% endif %}</span>
-            </div>
-            {% endfor %}
-          </div>
-        </article>
         {% endfor %}
-      </section>
-      <main class="article-list" style="columns: {{ settings.columns }};">
-        {% for article in articles %}
-        <article class="story">
-          <div class="story-copy">
-            <h2>{{ article.title }}</h2>
-            {% if settings.get('show_descriptions') == 'true' and article.summary %}<p>{{ article.summary }}</p>{% endif %}
-            <div class="story-source">{{ feeds[article.feed_id].name }}{% if article.author %} · {{ article.author }}{% endif %}</div>
-            {% if article.local_image %}<img class="story-image" src="{{ article.local_image }}" alt="">{% endif %}
-          </div>
-          {% if settings.get('show_qr_codes') == 'true' and article.qr_code %}<a class="story-qr" href="{{ article.url }}" aria-label="Ouvrir l’article de {{ article.title }}"><img src="{{ article.qr_code }}" alt="QR code"></a>{% endif %}
-        </article>
-        {% else %}<p class="empty-state">Aucun article retenu pour cette édition.</p>{% endfor %}
-      </main>
-    </body>
-    </html>
+      </div>
+    </article>
+    {% endfor %}
+  </section>
+  <main class="article-list" style="columns: {{ settings.columns }};">
+    {% for article in articles %}
+    <article class="story">
+      <div class="story-copy">
+        <h2>{{ article.title }}</h2>
+        {% if settings.get('show_descriptions') == 'true' and article.summary %}<p>{{ article.summary }}</p>{% endif %}
+        <div class="story-source">{{ feeds[article.feed_id].name }}{% if article.author %} · {{ article.author }}{% endif %}</div>
+        {% if article.local_image %}<img class="story-image" src="{{ article.local_image }}" alt="">{% endif %}
+      </div>
+      {% if settings.get('show_qr_codes') == 'true' and article.qr_code %}<a class="story-qr" href="{{ article.url }}" aria-label="Ouvrir l’article de {{ article.title }}"><img src="{{ article.qr_code }}" alt="QR code"></a>{% endif %}
+    </article>
+    {% else %}<p class="empty-state">Aucun article retenu pour cette édition.</p>{% endfor %}
+  </main>
+</body>
+</html>

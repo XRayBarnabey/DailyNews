@@ -165,6 +165,23 @@ class WebTests(unittest.TestCase):
         self.assertEqual(len(response.json()), 1)
         self.assertEqual(response.json()[0]["latitude"], 49.1846)
 
+    def test_weather_preview_returns_forecast_for_selected_city(self):
+        from app.weather import Weather, WeatherPeriod
+
+        period = WeatherPeriod(temperature=14.0, precipitation_probability=20, condition="Éclaircies", icon="◐")
+        forecast = Weather("Caen", "2026-10-06", period, period)
+        with patch.object(main_module.OpenMeteoProvider, "forecast", return_value=forecast):
+            response = self.client.get(
+                "/api/weather/preview?name=Caen&latitude=49.18&longitude=-0.36&timezone=Europe/Paris",
+                auth=("admin", "change-me"),
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["morning"]["temperature"], 14.0)
+        bad = self.client.get(
+            "/api/weather/preview?name=Caen&latitude=49&longitude=0&timezone=Nope/Zone", auth=("admin", "change-me")
+        )
+        self.assertEqual(bad.status_code, 422)
+
     def test_meteo_key_is_configurable_but_never_returned(self):
         payload = {
             "newspaper_name": "Le Quotidien",

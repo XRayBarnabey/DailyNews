@@ -19,6 +19,49 @@ document.addEventListener("DOMContentLoaded", () => {
     if (removeButton && locations.children.length > 1) removeButton.closest("[data-weather-location]").remove();
   });
 
+  locations.addEventListener("click", async (event) => {
+    const checkButton = event.target.closest("[data-check-weather]");
+    if (!checkButton) return;
+    const row = checkButton.closest("[data-weather-location]");
+    const result = row.querySelector("[data-weather-result]");
+    const latitude = row.querySelector("[data-city-latitude]").value;
+    const longitude = row.querySelector("[data-city-longitude]").value;
+    result.classList.remove("is-error");
+    if (!latitude || !longitude) {
+      result.classList.add("is-error");
+      result.textContent = "Choisissez d’abord une suggestion dans la liste.";
+      return;
+    }
+    const params = new URLSearchParams({
+      name: row.querySelector("[data-city-name]").value.trim(),
+      latitude,
+      longitude,
+      timezone: row.querySelector("[data-city-timezone]").value || "auto",
+    });
+    checkButton.disabled = true;
+    result.textContent = "Récupération en cours…";
+    try {
+      const response = await fetch(`/api/weather/preview?${params}`, { credentials: "same-origin" });
+      if (!response.ok) throw new Error();
+      const data = await response.json();
+      const format = (label, period) =>
+        `${label} : ${period.temperature === null ? "—" : `${Math.round(period.temperature)}°`}, ${period.condition}, pluie ${
+          period.precipitation_probability === null ? "—" : `${period.precipitation_probability} %`
+        }`;
+      if (data.morning.temperature === null && data.afternoon.temperature === null) {
+        result.classList.add("is-error");
+        result.textContent = "Aucune prévision reçue d’Open-Meteo.";
+      } else {
+        result.textContent = `✓ ${format("Matin", data.morning)} — ${format("Après-midi", data.afternoon)}`;
+      }
+    } catch {
+      result.classList.add("is-error");
+      result.textContent = "Impossible de contacter le service météo.";
+    } finally {
+      checkButton.disabled = false;
+    }
+  });
+
   locations.addEventListener("input", (event) => {
     const cityInput = event.target.closest("[data-city-name]");
     if (!cityInput) return;
