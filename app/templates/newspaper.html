@@ -6,7 +6,7 @@
 </head>
 <body>
   <header class="masthead">
-    <div class="edition-line"><span>{{ edition_date.strftime('%A %d %B %Y') }}</span><span>Nº {{ edition_date.strftime('%Y%m%d') }}</span></div>
+    <div class="edition-line"><div class="edition-meta"><span>{{ french_date }}</span>{% if name_day %}<span class="name-day">Fête du jour : {{ name_day }}</span>{% endif %}</div><span>Nº {{ edition_date.strftime('%Y%m%d') }}</span></div>
     <h1>{{ name }}</h1>
     <div class="masthead-rule"></div>
   </header>

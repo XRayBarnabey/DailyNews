@@ -10,6 +10,7 @@ from pypdf import PdfReader
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 
+from app.calendar import format_french_date
 from app.database import Base
 from app.models import Article, Edition, Feed, Setting
 from app.printing import CupsPrintProvider
@@ -24,7 +25,7 @@ class TestWeather:
     def __init__(self):
         self.locations = []
 
-    def forecast(self, city, latitude, longitude, forecast_date, timezone_name):
+    def forecast(self, city_id, city, forecast_date, timezone_name, latitude=None, longitude=None):
         self.locations.append(city)
         return Weather(
             city,
@@ -64,7 +65,7 @@ class ServiceTests(unittest.TestCase):
     def test_weather_api_failure_returns_fallback(self):
         with patch("app.weather.urlopen", side_effect=TimeoutError("offline")):
             weather = OpenWeatherProvider(api_key="test-key").forecast(
-                "Paris", 48.8566, 2.3522, datetime.now(ZoneInfo("Europe/Paris")).date(), "Europe/Paris"
+                3029241, "Paris", datetime.now(ZoneInfo("Europe/Paris")).date(), "Europe/Paris"
             )
         self.assertEqual(weather.city, "Paris")
         self.assertEqual(weather.morning.condition, "Prévision indisponible")
@@ -103,7 +104,11 @@ class ServiceTests(unittest.TestCase):
                 )
             )
         self.db.commit()
-        with tempfile.TemporaryDirectory() as directory, patch("app.services.PDF_DIR", Path(directory)):
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch("app.services.PDF_DIR", Path(directory)),
+            patch("app.services.fete_du_jour", return_value="Saint Bruno"),
+        ):
             edition = generate_edition(self.db, edition_date=today, weather_provider=TestWeather())
             reader = PdfReader(edition.pdf_path)
             self.assertTrue(Path(edition.pdf_path).read_bytes().startswith(b"%PDF-"))
@@ -116,6 +121,8 @@ class ServiceTests(unittest.TestCase):
             text = " ".join(page.extract_text() or "" for page in reader.pages)
             self.assertNotIn("À LA UNE", text)
             self.assertNotIn("FAITS MARQUANTS", text)
+            self.assertIn(format_french_date(today), text)
+            self.assertIn("Fête du jour : Saint Bruno", text)
 
     def test_no_feeds_or_candidates_produces_an_edition(self):
         today = datetime.now(ZoneInfo("Europe/Paris")).date()
@@ -228,8 +235,8 @@ class ServiceTests(unittest.TestCase):
     def test_multiple_weather_locations_render_below_title(self):
         today = datetime.now(ZoneInfo("Europe/Paris")).date()
         locations = [
-            {"name": "Paris", "latitude": 48.8566, "longitude": 2.3522},
-            {"name": "Lyon", "latitude": 45.764, "longitude": 4.8357},
+            {"name": "Paris", "city_id": 2988507},
+            {"name": "Lyon", "city_id": 2996944},
         ]
         self.db.add(Setting(key="weather_locations", value=json.dumps(locations)))
         self.db.commit()

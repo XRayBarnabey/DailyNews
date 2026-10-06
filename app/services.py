@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from weasyprint import CSS, HTML
 
+from app.calendar import fete_du_jour, format_french_date
 from app.config import PDF_DIR, TIMEZONE
 from app.models import Article, Edition, Feed, Setting
 from app.newsroom.selection import CandidateArticle, FeedQuota, select_articles
@@ -38,7 +39,7 @@ DEFAULT_SETTINGS = {
     "show_descriptions": "true",
     "show_source_url": "false",
     "show_qr_codes": "false",
-    "weather_locations": '[{"name":"Paris","latitude":48.8566,"longitude":2.3522}]',
+    "weather_locations": '[{"name":"Paris","city_id":2988507}]',
 }
 
 
@@ -154,14 +155,16 @@ def generate_edition(
     provider = weather_provider or OpenWeatherProvider()
     weather_reports = [
         provider.forecast(
-            location["name"],
-            float(location["latitude"]),
-            float(location["longitude"]),
-            edition_date,
-            timezone_name,
+            city_id=location.get("city_id"),
+            city=location.get("name") or f"Ville {location.get('city_id', '')}",
+            forecast_date=edition_date,
+            timezone_name=timezone_name,
+            latitude=float(location["latitude"]) if location.get("latitude") is not None else None,
+            longitude=float(location["longitude"]) if location.get("longitude") is not None else None,
         )
         for location in weather_locations[:10]
     ]
+    name_day = fete_du_jour(edition_date)
     if settings.get("show_qr_codes") == "true":
         for article in selected_rows:
             article.qr_code = _qr_data_uri(article.url)
@@ -205,6 +208,8 @@ def generate_edition(
                 settings=settings,
                 feeds=feeds_by_id,
                 timezone_name=timezone_name,
+                french_date=format_french_date(edition_date),
+                name_day=name_day,
             )
             rendered = HTML(string=html_content, base_url=str(TEMPLATE_DIR)).render(
                 stylesheets=[CSS(filename=str(TEMPLATE_DIR / "newspaper.css"))]

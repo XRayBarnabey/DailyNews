@@ -100,22 +100,22 @@ class WebTests(unittest.TestCase):
             "show_qr_codes": True,
             "show_descriptions": True,
             "weather_locations": [
-                {"name": "Paris", "latitude": 48.8566, "longitude": 2.3522},
-                {"name": "Lyon", "latitude": 45.764, "longitude": 4.8357},
+                {"name": "Paris", "city_id": "https://openweathermap.org/city/2988507"},
+                {"name": "Lyon", "city_id": "4467639"},
             ],
         }
         response = self.client.put("/api/settings", auth=("admin", "change-me"), json=payload)
         self.assertEqual(response.status_code, 200)
         saved = response.json()
         self.assertEqual(saved["max_pages"], "2")
-        self.assertEqual(json.loads(json.dumps(saved["weather_locations"])), payload["weather_locations"])
+        self.assertEqual([location["city_id"] for location in saved["weather_locations"]], [2988507, 4467639])
         self.assertEqual(saved["columns"], "3")
         self.assertEqual(saved["show_qr_codes"], "true")
 
     def test_settings_form_persists_weather_locations_and_page_options(self):
         locations = [
-            {"name": "Paris", "latitude": 48.8566, "longitude": 2.3522},
-            {"name": "Lyon", "latitude": 45.764, "longitude": 4.8357},
+            {"name": "Paris", "city_id": "https://openweathermap.org/city/2988507"},
+            {"name": "Lyon", "city_id": "4467639"},
         ]
         response = self.client.post(
             "/settings",
@@ -136,7 +136,7 @@ class WebTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 303)
         saved = self.client.get("/api/settings", auth=("admin", "change-me")).json()
-        self.assertEqual(saved["weather_locations"], locations)
+        self.assertEqual([location["city_id"] for location in saved["weather_locations"]], [2988507, 4467639])
         self.assertEqual(saved["max_pages"], "2")
         self.assertEqual(saved["columns"], "3")
         self.assertEqual(saved["show_qr_codes"], "true")

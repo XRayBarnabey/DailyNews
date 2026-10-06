@@ -21,10 +21,9 @@ document.addEventListener("DOMContentLoaded", () => {
   form.addEventListener("submit", (event) => {
     const entries = [...locations.querySelectorAll("[data-weather-location]")].map((row) => ({
       name: row.querySelector("[data-location-name]").value.trim(),
-      latitude: Number(row.querySelector("[data-location-latitude]").value),
-      longitude: Number(row.querySelector("[data-location-longitude]").value),
+      city_id: row.querySelector("[data-city-id]").value.trim(),
     }));
-    if (entries.some((location) => !location.name || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude))) {
+    if (entries.some((location) => !location.city_id)) {
       event.preventDefault();
       return;
     }

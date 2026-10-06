@@ -3,15 +3,17 @@ from __future__ import annotations
 import hmac
 import json
 import logging
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, FastAPI, Form, HTTPException, Request, Response, status
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -82,9 +84,30 @@ class GenerateInput(BaseModel):
 
 
 class WeatherLocationInput(BaseModel):
-    name: str = Field(min_length=1, max_length=100)
-    latitude: float = Field(ge=-90, le=90)
-    longitude: float = Field(ge=-180, le=180)
+    name: str = Field(default="", max_length=100)
+    city_id: int | None = Field(default=None, ge=1)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+
+    @field_validator("city_id", mode="before")
+    @classmethod
+    def parse_city_id(cls, value):
+        if value is None or value == "":
+            return None
+        if isinstance(value, int) or str(value).strip().isdigit():
+            return int(value)
+        parts = urlsplit(str(value).strip())
+        if parts.scheme in {"http", "https"} and parts.hostname in {"openweathermap.org", "www.openweathermap.org"}:
+            match = re.fullmatch(r"/city/(\d+)/?", parts.path)
+            if match:
+                return int(match.group(1))
+        raise ValueError("Collez l’URL OpenWeather /city/<id> ou saisissez son identifiant numérique.")
+
+    @model_validator(mode="after")
+    def validate_location(self):
+        if self.city_id is None and (self.latitude is None or self.longitude is None):
+            raise ValueError("Un identifiant de ville OpenWeather est requis.")
+        return self
 
 
 class SettingsInput(BaseModel):
@@ -99,7 +122,7 @@ class SettingsInput(BaseModel):
     columns: int = Field(ge=1, le=3)
     max_pages: int = Field(default=4, ge=1, le=32)
     weather_locations: list[WeatherLocationInput] = Field(
-        default_factory=lambda: [WeatherLocationInput(name="Paris", latitude=48.8566, longitude=2.3522)],
+        default_factory=lambda: [WeatherLocationInput(name="Paris", city_id=2988507)],
         min_length=1,
         max_length=10,
     )
@@ -282,10 +305,15 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         weather_locations = [
             {
                 "name": settings.get("city", "Paris"),
+                "city_id": "",
                 "latitude": settings.get("latitude", "48.8566"),
                 "longitude": settings.get("longitude", "2.3522"),
             }
         ]
+    weather_locations = [
+        {"name": location.get("name", ""), "city_id": location.get("city_id", ""), **location}
+        for location in weather_locations
+    ]
     return templates.TemplateResponse(
         request,
         "settings.html",
@@ -321,9 +349,9 @@ def settings_save(
         values = SettingsInput(
             newspaper_name=newspaper_name,
             timezone=timezone,
-            city=first_location.name,
-            latitude=first_location.latitude,
-            longitude=first_location.longitude,
+            city=first_location.name or str(first_location.city_id or "Paris"),
+            latitude=first_location.latitude or 48.8566,
+            longitude=first_location.longitude or 2.3522,
             maximum_articles=maximum_articles,
             minimum_articles=minimum_articles,
             period_days=period_days,

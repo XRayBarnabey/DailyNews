@@ -8,7 +8,9 @@
 html { color: #171717; font-family: "DejaVu Serif", Georgia, serif; font-size: 9pt; line-height: 1.4; }
 body { margin: 0; }
 .masthead { text-align: center; }
-.edition-line { display: flex; justify-content: space-between; font: 7pt sans-serif; text-transform: uppercase; }
+.edition-line { display: flex; justify-content: space-between; align-items: flex-start; font: 7pt sans-serif; }
+.edition-meta { display: grid; gap: 1mm; text-align: left; text-transform: none; }
+.name-day { color: #444; font-style: italic; }
 .masthead h1 { margin: 2mm 0 3mm; font-size: 30pt; line-height: 1; font-weight: 900; }
 .masthead-rule { border-top: 2pt solid #171717; }
 .weather-strip { display: flex; flex-wrap: wrap; gap: 3mm; margin: 4mm 0 5mm; padding: 0 0 4mm; border-bottom: 1pt solid #171717; }

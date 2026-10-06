@@ -26,7 +26,7 @@ Depuis le tableau de bord, utilisez **Récupérer les flux** puis **Générer un
 
 La page **Flux RSS** permet d’ajouter, tester, activer, modifier et supprimer les sources. Le flux `mock://demo`, livré à l’installation, sert quatre articles fictifs datés de la veille sans accès réseau. Il peut être récupéré et généré comme n’importe quel flux.
 
-La page **Journal** permet d’ajouter jusqu’à dix villes avec leurs coordonnées. OpenWeather fournit pour chacune la température, les conditions et le risque de précipitations du matin et de l’après-midi. La clé se configure dans `.env`; si le fournisseur est indisponible, les champs météo affichent un tiret sans empêcher le PDF.
+La page **Journal** permet d’ajouter jusqu’à dix villes en collant leur URL OpenWeather (`https://openweathermap.org/city/3029241`) ou en saisissant seulement l’ID numérique. Aucun couple latitude/longitude n’est nécessaire. OpenWeather fournit pour chaque ville la température, les conditions et le risque de précipitations du matin et de l’après-midi. La date française et la fête principale du jour sont imprimées en haut à gauche ; les noms sont lus depuis Nominis, avec repli silencieux si le service est indisponible. La clé météo reste dans `.env` et n’est jamais publiée.
 
 Le PDF place le bandeau météo immédiatement sous le titre puis les articles résumés en une, deux ou trois colonnes, sans rubriques ni URL imprimées. Les QR codes vers les articles sont optionnels. Le plafond de pages se règle dans **Journal** : par exemple `2` pour une feuille recto-verso, `4` pour deux feuilles. Si nécessaire, les articles les moins bien classés sont retirés pour respecter le plafond sans couper le document.
 
