@@ -223,3 +223,4 @@ td strong, .cell-url { display: block; }
 .weather-check-result { grid-column: 1 / -1; margin: 0; font-size: 11px; color: #595751; }
 .weather-check-result:empty { display: none; }
 .weather-check-result.is-error { color: #a12; }
+.app-version { font-weight: 600; color: var(--ink); }

@@ -1,6 +1,9 @@
 services:
   dailynews:
-    build: .
+    build:
+      context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-}
     container_name: dailynews
     restart: unless-stopped
     environment:

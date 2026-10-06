@@ -104,15 +104,26 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   form.addEventListener("submit", (event) => {
-    const entries = [...locations.querySelectorAll("[data-weather-location]")].map((row) => ({
-      name: row.querySelector("[data-location-name]").value.trim(),
-      latitude: Number(row.querySelector("[data-city-latitude]").value),
-      longitude: Number(row.querySelector("[data-city-longitude]").value),
-      timezone: row.querySelector("[data-city-timezone]").value || "auto",
-    }));
-    if (entries.some((location) => !location.name || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude))) {
-      event.preventDefault();
-      return;
+    const rows = [...locations.querySelectorAll("[data-weather-location]")];
+    const entries = [];
+    for (const row of rows) {
+      const name = row.querySelector("[data-city-name]").value.trim();
+      const latitude = row.querySelector("[data-city-latitude]").value;
+      const longitude = row.querySelector("[data-city-longitude]").value;
+      if (!name || latitude === "" || longitude === "") {
+        event.preventDefault();
+        const result = row.querySelector("[data-weather-result]");
+        result.classList.add("is-error");
+        result.textContent = "Choisissez une suggestion dans la liste pour cette ville avant d’enregistrer.";
+        row.querySelector("[data-city-name]").focus();
+        return;
+      }
+      entries.push({
+        name,
+        latitude: Number(latitude),
+        longitude: Number(longitude),
+        timezone: row.querySelector("[data-city-timezone]").value || "auto",
+      });
     }
     serialized.value = JSON.stringify(entries);
   });

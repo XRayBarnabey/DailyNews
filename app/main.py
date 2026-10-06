@@ -44,12 +44,14 @@ from app.printing import CupsPrintProvider
 from app.rss import fetch_all, fetch_feed
 from app.scheduler import configure_jobs, start_scheduler, stop_scheduler
 from app.services import generate_edition, save_settings, settings_dict
+from app.version import APP_VERSION
 from app.weather import OpenMeteoProvider
 
 configure_logging(LOG_LEVEL)
 logger = logging.getLogger(__name__)
 security = HTTPBasic()
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals["app_version"] = APP_VERSION
 
 
 def require_admin(credentials: HTTPBasicCredentials = Depends(security)) -> str:
@@ -182,7 +184,7 @@ class ScheduleInput(BaseModel):
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok"}
+    return {"status": "ok", "version": APP_VERSION}
 
 
 @web.get("/", response_class=HTMLResponse)

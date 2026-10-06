@@ -23,6 +23,6 @@
     {% if request.query_params.get('notice') %}<div class="notice" role="status">{{ request.query_params.get('notice') }}</div>{% endif %}
     {% block content %}{% endblock %}
   </main>
-  <footer class="app-footer"><span>DAILYNEWS · PRESSE PERSONNALISÉE</span><span>Sources citées · Édition imprimable A4</span></footer>
+  <footer class="app-footer"><span>DAILYNEWS · PRESSE PERSONNALISÉE</span><span>Sources citées · Édition imprimable A4 · <b class="app-version" title="Version en cours d’utilisation">{{ app_version }}</b></span></footer>
 </body>
 </html>

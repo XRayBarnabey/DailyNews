@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
+ARG GIT_SHA=""
+ENV GIT_SHA=$GIT_SHA
 COPY app ./app
 
 RUN useradd --system --uid 10001 --create-home dailynews \

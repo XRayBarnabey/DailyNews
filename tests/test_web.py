@@ -165,6 +165,13 @@ class WebTests(unittest.TestCase):
         self.assertEqual(len(response.json()), 1)
         self.assertEqual(response.json()[0]["latitude"], 49.1846)
 
+    def test_version_is_shown_in_footer_and_health(self):
+        from app.version import APP_VERSION
+
+        page = self.client.get("/", auth=("admin", "change-me"))
+        self.assertIn(APP_VERSION, page.text)
+        self.assertEqual(self.client.get("/health").json()["version"], APP_VERSION)
+
     def test_weather_preview_returns_forecast_for_selected_city(self):
         from app.weather import Weather, WeatherPeriod
 

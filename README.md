@@ -108,6 +108,10 @@ GET               /health
 
 Les schémas d’entrée valident les URL, horaires, quotas et coordonnées. La récupération RSS refuse les URL non HTTP(S), les adresses IP non publiques et les redirections ; la taille et le délai des flux sont limités. Les flux accessibles sont donc des URL publiques configurées par l’administrateur.
 
+## Version
+
+La version en cours (fichier `app/VERSION`, plus le commit Git si connu) s'affiche en bas à droite de l'interface et dans `/health`. Pour inclure le commit dans l'image Docker : `GIT_SHA=$(git rev-parse --short HEAD) docker compose up -d --build`.
+
 ## Sauvegarde et maintenance
 
 Sauvegardez régulièrement le volume Docker `dailynews-data`, qui contient la base SQLite, les PDF, les images locales et les journaux. Par exemple, arrêtez le service puis archivez le volume avec les outils Docker de votre hôte. Les PDF restent des fichiers standards indépendants de DailyNews.
