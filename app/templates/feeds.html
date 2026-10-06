@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Flux RSS{% endblock %}
+{% block content %}
+<section class="page-intro"><div><p class="eyebrow">COLLECTE · {{ feeds|length }} SOURCES</p><h1>Le fil de la rédaction.</h1><p class="subtitle">Réglez le poids, la priorité et les quotas de chaque source.</p></div><form method="post" action="/actions/fetch"><button class="button button-dark" type="submit">Tout récupérer ↗</button></form></section>
+<section class="panel table-panel"><div class="panel-heading"><div><p class="eyebrow">SOURCES CONFIGURÉES</p><h2>Flux RSS</h2></div><span class="table-count">{{ feeds|length }} SOURCES</span></div>
+  <div class="table-scroll"><table><thead><tr><th>Source</th><th>Rubrique</th><th>Poids</th><th>Articles</th><th>Dernière récupération</th><th>État</th><th></th></tr></thead><tbody>
+  {% for feed in feeds %}<tr><td><strong>{{ feed.name }}</strong><small class="cell-url">{{ feed.url }}</small></td><td>{{ feed.category }}</td><td>{{ '%.1f'|format(feed.weight) }} <span class="muted">· P{{ feed.priority }}</span></td><td>{{ counts.get(feed.id, 0) }}</td><td>{{ feed.last_fetched_at.strftime('%d.%m.%Y %H:%M') if feed.last_fetched_at else 'Jamais' }}</td><td><span class="status {% if feed.last_status == 'Erreur' %}status-error{% elif not feed.active %}status-disabled{% else %}status-ready{% endif %}">{{ feed.last_status if feed.active else 'Désactivé' }}</span></td><td><details class="row-actions"><summary aria-label="Actions pour {{ feed.name }}">···</summary><div class="popover"><form method="post" action="/feeds/{{ feed.id }}/test"><button>Tester le flux</button></form><a href="#edit-{{ feed.id }}">Modifier</a><form method="post" action="/feeds/{{ feed.id }}/delete" onsubmit="return confirm('Supprimer ce flux et ses articles ?')"><button class="danger-text">Supprimer</button></form></div></details></td></tr>
+  {% endfor %}
+  </tbody></table></div>
+</section>
+<section class="panel add-feed-panel"><div class="panel-heading"><div><p class="eyebrow">NOUVELLE SOURCE</p><h2>Ajouter un flux</h2></div><span class="subtle-index">01 / SOURCES</span></div>
+  <form method="post" action="/feeds/create" class="form-grid">
+    <label>Nom de la source<input name="name" required maxlength="120" placeholder="Ex. France Info"></label><label class="span-2">URL RSS<input name="url" required type="url" placeholder="https://exemple.fr/rss.xml"></label>
+    <label>Rubrique<select name="category">{% for category in categories %}<option>{{ category }}</option>{% endfor %}</select></label><label>Poids<input name="weight" type="number" min="0" max="100" step="0.1" value="1"></label><label>Priorité<input name="priority" type="number" min="-10" max="10" value="0"></label>
+    <label>Minimum d’articles<input name="minimum" type="number" min="0" value="0"></label><label>Maximum d’articles<input name="maximum" type="number" min="0" placeholder="Sans limite"></label><div class="form-actions"><button class="button button-dark">Ajouter le flux <span>↗</span></button></div>
+  </form>
+</section>
+{% for feed in feeds %}<details class="panel edit-feed" id="edit-{{ feed.id }}"><summary><span class="eyebrow">MODIFIER LA SOURCE</span><strong>{{ feed.name }}</strong><span class="edit-chevron">+</span></summary><form method="post" action="/feeds/{{ feed.id }}/update" class="form-grid">
+  <label>Nom<input name="name" required value="{{ feed.name }}"></label><label class="span-2">URL RSS<input name="url" required value="{{ feed.url }}"></label><label>Rubrique<select name="category">{% for category in categories %}<option {% if category == feed.category %}selected{% endif %}>{{ category }}</option>{% endfor %}</select></label><label>Poids<input name="weight" type="number" min="0" max="100" step="0.1" value="{{ feed.weight }}"></label><label>Priorité<input name="priority" type="number" min="-10" max="10" value="{{ feed.priority }}"></label><label>Minimum<input name="minimum" type="number" min="0" value="{{ feed.minimum }}"></label><label>Maximum<input name="maximum" type="number" min="0" value="{{ feed.maximum if feed.maximum is not none else '' }}"></label><label class="check-label"><input name="active" type="checkbox" {% if feed.active %}checked{% endif %}> Flux actif</label><div class="form-actions"><button class="button button-dark">Enregistrer</button></div>
+</form></details>{% endfor %}
+{% endblock %}

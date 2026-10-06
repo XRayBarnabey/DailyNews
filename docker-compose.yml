@@ -1,0 +1,26 @@
+services:
+  dailynews:
+    build: .
+    container_name: dailynews
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-this-password}
+      DATA_DIR: /data
+      PDF_DIR: /data/pdf
+      DATABASE_URL: sqlite:////data/database/dailynews.db
+      TIMEZONE: ${TIMEZONE:-Europe/Paris}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      CUPS_SERVER: ${CUPS_SERVER:-}
+      CUPS_PORT: ${CUPS_PORT:-631}
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    volumes:
+      - dailynews-data:/data
+
+volumes:
+  dailynews-data:

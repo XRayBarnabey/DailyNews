@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}DailyNews{% endblock %} · DailyNews</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="brand-mark">D</span><span>DailyNews<small>ATELIER ÉDITORIAL</small></span></a>
+    <nav aria-label="Navigation principale">
+      <a class="{% if active == 'dashboard' %}is-active{% endif %}" href="/">Vue générale</a>
+      <a class="{% if active == 'feeds' %}is-active{% endif %}" href="/feeds">Flux RSS</a>
+      <a class="{% if active == 'editions' %}is-active{% endif %}" href="/editions">Éditions</a>
+      <a class="{% if active == 'settings' %}is-active{% endif %}" href="/settings">Journal</a>
+      <a class="{% if active == 'schedule' %}is-active{% endif %}" href="/schedule">Planification</a>
+    </nav>
+    <span class="session-user">ADMINISTRATION <i></i></span>
+  </header>
+  <main class="shell">
+    {% if request.query_params.get('notice') %}<div class="notice" role="status">{{ request.query_params.get('notice') }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="app-footer"><span>DAILYNEWS · PRESSE PERSONNALISÉE</span><span>Sources citées · Édition imprimable A4</span></footer>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Vue générale{% endblock %}
+{% block content %}
+<section class="page-intro">
+  <div><p class="eyebrow">LE STUDIO · {{ schedule.fetch_time if schedule else '05:30' }} RSS</p><h1>Bonjour, voici votre rédaction.</h1><p class="subtitle">Les nouvelles sources, leur sélection et votre prochaine édition, au même endroit.</p></div>
+  <div class="action-row"><form method="post" action="/actions/fetch"><button class="button button-light" type="submit">Récupérer les flux</button></form><form method="post" action="/actions/generate"><button class="button button-dark" type="submit">Générer une édition <span aria-hidden="true">↗</span></button></form></div>
+</section>
+<section class="metric-grid" aria-label="État du journal">
+  <article class="metric"><span class="metric-label">FLUX ACTIFS</span><strong>{{ '%02d'|format(feed_count) }}</strong><span class="metric-note">Sources surveillées</span></article>
+  <article class="metric"><span class="metric-label">ARTICLES ARCHIVÉS</span><strong>{{ article_count }}</strong><span class="metric-note">Tous flux confondus</span></article>
+  <article class="metric"><span class="metric-label">DERNIÈRE ÉDITION</span><strong class="metric-date">{{ edition.edition_date.strftime('%d.%m') if edition else '—' }}</strong><span class="metric-note">{{ edition.page_count if edition else 0 }} pages · {{ edition.article_count if edition else 0 }} articles</span></article>
+  <article class="metric metric-next"><span class="metric-label">PROCHAINE ÉDITION</span><strong>{{ schedule.generate_time if schedule and schedule.auto_generate else 'En pause' }}</strong><span class="metric-note">{{ schedule.print_time if schedule and schedule.auto_print else 'Impression désactivée' }} · {{ schedule.printer_name if schedule and schedule.auto_print else 'Aucune imprimante' }}</span></article>
+</section>
+<section class="dashboard-grid">
+  <div class="panel panel-main">
+    <div class="panel-heading"><div><p class="eyebrow">PRODUCTION</p><h2>Dernière édition</h2></div>{% if edition %}<a class="text-link" href="/editions/{{ edition.id }}">Ouvrir le dossier ↗</a>{% endif %}</div>
+    {% if edition %}
+      <div class="edition-preview"><div class="edition-preview-head"><span>{{ edition.edition_date.strftime('%A %d %B %Y') }}</span><span class="status status-{{ edition.status }}">{{ edition.status }}</span></div><div class="paper-sample"><span class="paper-rule"></span><b>LE QUOTIDIEN</b><span class="paper-rule"></span><h3>La revue de presse<br>du jour</h3><span class="paper-lines"></span></div><div class="edition-facts"><span>{{ edition.article_count }} ARTICLES</span><span>{{ edition.page_count }} PAGES A4</span><span>IMPRESSION {{ edition.print_status|upper }}</span></div><div class="action-row"><a class="button button-dark" href="/editions/{{ edition.id }}/pdf">Télécharger le PDF ↓</a><a class="button button-light" href="/editions/{{ edition.id }}">Prévisualiser</a></div></div>
+    {% else %}<div class="empty-state"><div class="empty-glyph">✳</div><h3>Aucune édition pour le moment</h3><p>Récupérez le flux de démonstration, puis lancez votre première édition.</p><form method="post" action="/actions/fetch"><button class="button button-dark">Récupérer le flux démo</button></form></div>{% endif %}
+  </div>
+  <aside class="panel panel-side"><div class="panel-heading"><div><p class="eyebrow">SOURCES</p><h2>Activité des flux</h2></div><a class="icon-link" href="/feeds" aria-label="Gérer les flux">↗</a></div>
+    {% for feed in recent_feeds[:5] %}<div class="feed-activity"><span class="feed-dot {% if feed.last_status == 'OK' %}dot-ok{% elif feed.last_status == 'Erreur' %}dot-error{% endif %}"></span><div><strong>{{ feed.name }}</strong><span>{{ feed.last_fetched_at.strftime('%d.%m · %H:%M') if feed.last_fetched_at else 'Jamais récupéré' }}</span></div><span class="feed-state">{{ feed.last_status }}</span></div>{% else %}<p class="muted">Ajoutez vos premières sources RSS.</p>{% endfor %}
+    <a class="text-link panel-link" href="/feeds">Voir tous les flux <span>↗</span></a>
+  </aside>
+</section>
+<section class="bottom-strip"><div><span class="eyebrow">IMPRESSION</span><strong>{{ recent_print.status if recent_print else 'Prête à configurer' }}</strong><span>{{ recent_print.printer_name if recent_print else 'Choisissez une imprimante dans Planification' }}</span></div><a class="text-link" href="/schedule">Configurer le planning et CUPS ↗</a></section>
+{% endblock %}

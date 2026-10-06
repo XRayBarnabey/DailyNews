@@ -1,0 +1,47 @@
+@page {
+  size: A4;
+  margin: 14mm 15mm 16mm;
+  @bottom-left { content: "DAILYNEWS · REVUE DE PRESSE"; font: 7pt sans-serif; letter-spacing: 1px; }
+  @bottom-right { content: counter(page); font: 9pt serif; }
+}
+@page:first { margin-top: 12mm; }
+* { box-sizing: border-box; }
+html { color: #171717; font-family: "DejaVu Serif", Georgia, serif; font-size: 9.5pt; line-height: 1.45; }
+body { margin: 0; }
+.masthead { text-align: center; }
+.edition-line, .section-heading { display: flex; justify-content: space-between; font: 7pt sans-serif; letter-spacing: 1px; text-transform: uppercase; }
+.masthead h1 { margin: 5mm 0 0; font-size: 39pt; line-height: 1; font-weight: 900; letter-spacing: 0; text-transform: uppercase; }
+.motto { margin: 2mm 0 3mm; font: italic 9pt serif; }
+.rule { border-top: .5pt solid #171717; }
+.rule.thick { border-top-width: 2pt; }
+.front-page { min-height: 175mm; position: relative; padding-top: 5mm; }
+.front-heading { display: flex; justify-content: space-between; border-bottom: 1pt solid; padding: 2mm 0; font: bold 8pt sans-serif; letter-spacing: 1px; }
+.lead { padding: 9mm 4mm 7mm; text-align: center; border-bottom: 1pt solid; }
+.kicker { font: bold 7pt sans-serif; text-transform: uppercase; letter-spacing: .7px; }
+.lead h2 { max-width: 155mm; margin: 3mm auto; font-size: 29pt; line-height: 1.08; }
+.lead-image { display: block; max-width: 110mm; max-height: 55mm; margin: 5mm auto; object-fit: cover; }
+.standfirst { max-width: 135mm; margin: 4mm auto; font-size: 12pt; line-height: 1.45; }
+.byline { margin: 4mm 0 0; font: 8pt sans-serif; }
+.source-url { display: block; margin-top: 2mm; color: #555; font: 6.5pt sans-serif; overflow-wrap: anywhere; text-decoration: none; }
+.front-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 9mm; padding-top: 7mm; }
+.front-stories { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6mm 7mm; }
+.compact { break-inside: avoid-column; margin: 0 0 6mm; }
+.compact h3 { margin: 1mm 0; font-size: 13pt; line-height: 1.18; }
+.compact p { margin: 2mm 0; font-size: 8pt; }
+.weather { border-left: 1pt solid #171717; padding: 2mm 0 2mm 6mm; }
+.weather h3 { margin: 2mm 0; font-size: 17pt; }
+.temperature { margin: 0; font: 34pt sans-serif; font-weight: 300; }
+.weather-range { border-top: .5pt solid #aaa; padding-top: 2mm; font: 8pt sans-serif; }
+.weather-range span { float: right; }
+.muted { color: #666; font: italic 8pt sans-serif; }
+.cover-bottom { position: absolute; right: 0; bottom: 5mm; left: 0; display: flex; justify-content: space-between; border-top: 1pt solid; padding-top: 2mm; font: 7pt sans-serif; }
+.section-page { break-inside: auto; }
+.section-title { margin: 4mm 0 5mm; padding-bottom: 2mm; border-bottom: 2pt solid; font-size: 26pt; line-height: 1.1; break-after: avoid; }
+.article-columns { columns: 2; column-gap: 8mm; column-rule: .5pt solid #bbb; }
+.story { break-inside: avoid-column; margin: 0 0 7mm; }
+.story h3 { margin: 1.5mm 0 2mm; font-size: 14pt; line-height: 1.2; }
+.story-image { display: block; max-width: 100%; max-height: 42mm; margin: 2mm 0; object-fit: cover; }
+.story p { margin: 0 0 2mm; }
+.story-meta { margin-top: 2mm; color: #444; font: 7pt sans-serif; text-transform: uppercase; }
+footer { display: none; }
+@media screen { body { width: 180mm; margin: 20px auto; } }
