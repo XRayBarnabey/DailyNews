@@ -15,10 +15,10 @@ from app import config
 
 logger = logging.getLogger(__name__)
 
-QUOTES_URL = "https://dummyjson.com/quotes?limit=0"
+QUOTES_URL = "https://citation.lecog.fr/public/api/quote-of-the-day.php"
 WORDS_URL = "https://trouve-mot.fr/api/random/{count}"
 DEFINITION_URL = "https://fr.wiktionary.org/api/rest_v1/page/definition/{word}"
-QUOTES_TTL = 30 * 86400
+QUOTES_TTL = 86400
 WORDS_TTL = 90 * 86400
 WORDS_TARGET = 400
 LENGTHS = {"debutant": (5, 7), "normal": (7, 9), "avance": (9, 13)}
@@ -55,23 +55,24 @@ def _save_cache(name: str, data) -> None:
 
 
 def fetch_quotes() -> list[dict]:
-    """Hundreds of quotes from the dummyjson.com public API, cached locally."""
-    cached = _load_cache("quotes.json", QUOTES_TTL)
+    """Fetches the French quote of the day, cached locally."""
+    cached = _load_cache("quotes-fr.json", QUOTES_TTL)
     if cached:
         return cached
     try:
         payload = _get_json(QUOTES_URL, timeout=15)
-        quotes = [
-            {"text": str(q["quote"]).strip(), "author": str(q.get("author", "")).strip()}
-            for q in payload.get("quotes", [])
-            if q.get("quote")
-        ]
+        item = payload.get("data", {})
+        text = str(item.get("text", "")).strip()
+        author = item.get("author", "")
+        if isinstance(author, dict):
+            author = " ".join(part.strip() for part in (author.get("forename", ""), author.get("name", "")) if part)
+        quotes = [{"text": text, "author": str(author).strip()}] if text else []
         if quotes:
-            _save_cache("quotes.json", quotes)
+            _save_cache("quotes-fr.json", quotes)
             return quotes
     except Exception as exc:
         logger.warning("Citations en ligne indisponibles : %s", exc)
-    return _load_cache("quotes.json", QUOTES_TTL, allow_stale=True) or []
+    return _load_cache("quotes-fr.json", QUOTES_TTL, allow_stale=True) or []
 
 
 def _normalize(word: str) -> str:

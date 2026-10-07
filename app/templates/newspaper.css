@@ -48,6 +48,6 @@ body { margin: 0; }
 .crossword-grid td { position: relative; width: 5mm; height: 5mm; }
 .crossword-grid td.cell { border: .7pt solid #171717; }
 .crossword-grid td span { position: absolute; top: .2mm; left: .4mm; font: 5pt sans-serif; }
-.crossword-clues { display: flex; gap: 5mm; }
-.crossword-clues p { margin: 0; }
+.crossword-clues { display: flex; min-width: 0; gap: 2mm; font-size: 5pt; }
+.crossword-clues p { flex: 1 1 0; min-width: 0; margin: 0; }
 @media screen { body { width: 180mm; margin: 20px auto; } }
