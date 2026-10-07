@@ -23,7 +23,9 @@ class OnlineContentTests(unittest.TestCase):
         }
         with patch("app.online._get_json", return_value=payload) as call:
             features = daily_features(date(2026, 10, 7), {"show_proverb": "true"})
-            self.assertEqual(online.fetch_quotes(), [{"text": "La citation française du jour.", "author": "Hubert Reeves"}])
+            self.assertEqual(
+                online.fetch_quotes(), [{"text": "La citation française du jour.", "author": "Hubert Reeves"}]
+            )
             self.assertEqual(call.call_count, 1)
         self.assertEqual(features["proverb"]["title"], "La citation du jour")
         self.assertEqual(features["proverb"]["text"], "La citation française du jour.")

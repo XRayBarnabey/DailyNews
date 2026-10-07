@@ -56,7 +56,7 @@ def _save_cache(name: str, data) -> None:
 
 def fetch_quotes() -> list[dict]:
     """Fetches the French quote of the day, cached locally."""
-    cached = _load_cache("quotes.json", QUOTES_TTL)
+    cached = _load_cache("quotes-fr.json", QUOTES_TTL)
     if cached:
         return cached
     try:
@@ -68,11 +68,11 @@ def fetch_quotes() -> list[dict]:
             author = " ".join(part.strip() for part in (author.get("forename", ""), author.get("name", "")) if part)
         quotes = [{"text": text, "author": str(author).strip()}] if text else []
         if quotes:
-            _save_cache("quotes.json", quotes)
+            _save_cache("quotes-fr.json", quotes)
             return quotes
     except Exception as exc:
         logger.warning("Citations en ligne indisponibles : %s", exc)
-    return _load_cache("quotes.json", QUOTES_TTL, allow_stale=True) or []
+    return _load_cache("quotes-fr.json", QUOTES_TTL, allow_stale=True) or []
 
 
 def _normalize(word: str) -> str:
