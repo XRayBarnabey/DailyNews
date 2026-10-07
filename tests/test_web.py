@@ -3,7 +3,7 @@ import io
 import json
 import tempfile
 import unittest
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -14,7 +14,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
-from app.models import Edition, PrintJob
+from app.models import Edition, PrintJob, Setting
 
 bootstrap_module = importlib.import_module("app.bootstrap")
 main_module = importlib.import_module("app.main")
@@ -109,6 +109,29 @@ class WebTests(unittest.TestCase):
         self.assertIn("Dernière impression : erreur", page.text)
         self.assertIn("lp: boom", page.text)
 
+    def test_edition_page_shows_crossword_solution_and_local_generation_time(self):
+        with self.session_factory() as session:
+            session.add(Setting(key="timezone", value="Europe/Paris"))
+            edition = Edition(
+                edition_date=date(2026, 10, 5),
+                generated_at=datetime(2026, 10, 7, 7, 32, tzinfo=UTC),
+                pdf_path="/tmp/none.pdf",
+                status="ready",
+                report=json.dumps(
+                    {"daily_features": {"crossword": {"difficulty": "débutant", "solution": "RAT / ARE / TES"}}}
+                ),
+            )
+            session.add(edition)
+            session.flush()
+            edition_id = edition.id
+            session.commit()
+        page = self.client.get(f"/editions/{edition_id}", auth=("admin", "change-me"))
+        self.assertIn("généré à 09:32", page.text)
+        self.assertIn("RAT / ARE / TES", page.text)
+        archive = self.client.get("/editions", auth=("admin", "change-me"))
+        self.assertIn("lundi 5 octobre 2026", archive.text)
+        self.assertIn(">09:32<", archive.text)
+
     def test_settings_api_saves_multiple_weather_locations_and_page_options(self):
         payload = {
             "newspaper_name": "Le Quotidien",
@@ -120,6 +143,11 @@ class WebTests(unittest.TestCase):
             "max_pages": 2,
             "show_qr_codes": True,
             "show_descriptions": True,
+            "show_daily_vocabulary": True,
+            "vocabulary_language": "pt-BR",
+            "show_crossword": True,
+            "crossword_difficulty": "avance",
+            "show_it_term": True,
             "weather_locations": [
                 {"name": "Paris", "latitude": 48.8566, "longitude": 2.3522, "timezone": "Europe/Paris"},
                 {"name": "Lyon", "latitude": 45.764, "longitude": 4.8357, "timezone": "Europe/Paris"},
@@ -132,6 +160,9 @@ class WebTests(unittest.TestCase):
         self.assertEqual([location["name"] for location in saved["weather_locations"]], ["Paris", "Lyon"])
         self.assertEqual(saved["columns"], "3")
         self.assertEqual(saved["show_qr_codes"], "true")
+        self.assertEqual(saved["vocabulary_language"], "pt-BR")
+        self.assertEqual(saved["crossword_difficulty"], "avance")
+        self.assertEqual(saved["show_crossword"], "true")
 
     def test_settings_form_persists_weather_locations_and_page_options(self):
         locations = [
@@ -152,6 +183,11 @@ class WebTests(unittest.TestCase):
                 "max_pages": "2",
                 "show_qr_codes": "on",
                 "show_descriptions": "on",
+                "show_daily_vocabulary": "on",
+                "vocabulary_language": "es",
+                "show_crossword": "on",
+                "crossword_difficulty": "normal",
+                "show_it_term": "on",
             },
             follow_redirects=False,
         )
@@ -161,6 +197,9 @@ class WebTests(unittest.TestCase):
         self.assertEqual(saved["max_pages"], "2")
         self.assertEqual(saved["columns"], "3")
         self.assertEqual(saved["show_qr_codes"], "true")
+        self.assertEqual(saved["vocabulary_language"], "es")
+        self.assertEqual(saved["crossword_difficulty"], "normal")
+        self.assertEqual(saved["show_it_term"], "true")
 
     def test_city_search_returns_openmeteo_geocoding_suggestions(self):
         payload = {

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.calendar import format_french_date
 from app.database import Base
+from app.learning import daily_features
 from app.models import Article, Edition, Feed, Setting
 from app.printing import CupsPrintProvider
 from app.rss import fetch_feed
@@ -142,6 +143,38 @@ class ServiceTests(unittest.TestCase):
             self.assertNotIn("FAITS MARQUANTS", text)
             self.assertIn(format_french_date(today), text)
             self.assertIn("Fête du jour : Saint Bruno", text)
+
+    def test_daily_learning_features_are_deterministic_and_rendered(self):
+        settings = {
+            "show_daily_vocabulary": "true",
+            "vocabulary_language": "pt-BR",
+            "show_crossword": "true",
+            "crossword_difficulty": "avance",
+            "show_it_term": "true",
+        }
+        edition_date = datetime(2026, 10, 7).date()
+        features = daily_features(edition_date, settings)
+        self.assertEqual(features["crossword"]["solution"], "SEL / EGO / LOT")
+        self.assertNotEqual(features["vocabulary"]["word"], daily_features(edition_date.replace(day=8), settings)["vocabulary"]["word"])
+
+        self.db.add(Setting(key="show_daily_vocabulary", value="true"))
+        self.db.add(Setting(key="vocabulary_language", value="pt-BR"))
+        self.db.add(Setting(key="show_crossword", value="true"))
+        self.db.add(Setting(key="crossword_difficulty", value="avance"))
+        self.db.add(Setting(key="show_it_term", value="true"))
+        self.db.commit()
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch("app.services.PDF_DIR", Path(directory)),
+            patch("app.services.fete_du_jour", return_value=""),
+        ):
+            edition = generate_edition(self.db, edition_date=edition_date, weather_provider=TestWeather())
+            text = " ".join(page.extract_text() or "" for page in PdfReader(edition.pdf_path).pages)
+        self.assertIn(features["vocabulary"]["word"], text)
+        self.assertIn("Mots croisés · niveau avancé", text)
+        self.assertIn(features["it_term"]["term"], text)
+        self.assertNotIn("SEL / EGO / LOT", text)
+        self.assertEqual(json.loads(edition.report)["daily_features"]["crossword"]["solution"], "SEL / EGO / LOT")
 
     def test_no_feeds_or_candidates_produces_an_edition(self):
         today = datetime.now(ZoneInfo("Europe/Paris")).date()
