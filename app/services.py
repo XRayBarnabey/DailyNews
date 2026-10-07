@@ -16,6 +16,7 @@ from weasyprint import CSS, HTML
 
 from app.calendar import fete_du_jour, format_french_date
 from app.config import OPENMETEO_API_KEY, PDF_DIR, TIMEZONE
+from app.learning import daily_features
 from app.models import Article, Edition, Feed, Setting
 from app.newsroom.selection import CandidateArticle, FeedQuota, select_articles
 from app.weather import OpenMeteoProvider, WeatherProvider
@@ -43,6 +44,11 @@ DEFAULT_SETTINGS = {
     "title_font": "DejaVu Serif",
     "article_font": "DejaVu Serif",
     "weather_locations": '[{"name":"Paris","latitude":48.8566,"longitude":2.3522,"timezone":"Europe/Paris"}]',
+    "show_daily_vocabulary": "false",
+    "vocabulary_language": "fr",
+    "show_crossword": "false",
+    "crossword_difficulty": "debutant",
+    "show_it_term": "false",
 }
 
 
@@ -172,6 +178,7 @@ def generate_edition(
         for location in weather_locations[:10]
     ]
     name_day = fete_du_jour(edition_date)
+    learning_features = daily_features(edition_date, settings)
     if settings.get("show_qr_codes") == "true":
         for article in selected_rows:
             article.qr_code = _qr_data_uri(article.url)
@@ -193,6 +200,7 @@ def generate_edition(
         "sections": len({classify(article, feeds_by_id[article.feed_id]) for article in selected_rows}),
         "by_feed": dict(Counter(feeds_by_id[item.feed_id].name for item in selected_rows)),
         "minimum_reached": len(selected_rows) >= int(settings["minimum_articles"]),
+        "daily_features": learning_features,
     }
     environment = Environment(loader=FileSystemLoader(TEMPLATE_DIR), autoescape=select_autoescape(["html"]))
     logo_path = PDF_DIR / "branding" / "logo.png"
@@ -224,6 +232,7 @@ def generate_edition(
                 french_date=format_french_date(edition_date),
                 name_day=name_day,
                 logo_data_uri=logo_data_uri,
+                daily_features=learning_features,
             )
             rendered = HTML(string=html_content, base_url=str(TEMPLATE_DIR)).render(
                 stylesheets=[CSS(filename=str(TEMPLATE_DIR / "newspaper.css"))]

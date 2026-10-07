@@ -47,5 +47,44 @@
     </article>
     {% else %}<p class="empty-state">Aucun article retenu pour cette édition.</p>{% endfor %}
   </main>
+  {% if daily_features %}
+  <section class="daily-learning">
+    <h2>Le supplément du jour</h2>
+    <div class="learning-grid">
+      {% if daily_features.vocabulary %}
+      <article class="learning-card">
+        <h3>Le mot du jour · {{ daily_features.vocabulary.language }}</h3>
+        <strong>{{ daily_features.vocabulary.word }}</strong>
+        {% if daily_features.vocabulary.translation %}<span>{{ daily_features.vocabulary.translation }}</span>{% endif %}
+        <p>{{ daily_features.vocabulary.definition }}</p>
+      </article>
+      {% endif %}
+      {% if daily_features.crossword %}
+      <article class="learning-card crossword">
+        <h3>Mots croisés · niveau {{ daily_features.crossword.difficulty }}</h3>
+        <div class="crossword-content">
+          <table class="crossword-grid" aria-label="Grille de mots croisés à compléter"><tbody>
+            {% for row in daily_features.crossword.rows %}
+            <tr>{% for letter in row %}<td></td>{% endfor %}</tr>
+            {% endfor %}
+          </tbody></table>
+          <div class="crossword-clues">
+            <p><b>Horizontalement</b><br>1. {{ daily_features.crossword.across[0] }}<br>4. {{ daily_features.crossword.across[1] }}<br>5. {{ daily_features.crossword.across[2] }}</p>
+            <p><b>Verticalement</b><br>1. {{ daily_features.crossword.down[0] }}<br>2. {{ daily_features.crossword.down[1] }}<br>3. {{ daily_features.crossword.down[2] }}</p>
+          </div>
+        </div>
+        <small>Solution sur la page web de cette édition.</small>
+      </article>
+      {% endif %}
+      {% if daily_features.it_term %}
+      <article class="learning-card">
+        <h3>Le terme informatique</h3>
+        <strong>{{ daily_features.it_term.term }}</strong>
+        <p>{{ daily_features.it_term.definition }}</p>
+      </article>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
 </body>
 </html>
