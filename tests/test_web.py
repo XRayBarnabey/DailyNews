@@ -118,7 +118,7 @@ class WebTests(unittest.TestCase):
                 pdf_path="/tmp/none.pdf",
                 status="ready",
                 report=json.dumps(
-                    {"daily_features": {"crossword": {"difficulty": "débutant", "solution": "RAT / ARE / TES"}}}
+                    {"daily_features": {"crossword": {"difficulty": "débutant", "solution": "1 H : RATEAU"}}}
                 ),
             )
             session.add(edition)
@@ -127,7 +127,7 @@ class WebTests(unittest.TestCase):
             session.commit()
         page = self.client.get(f"/editions/{edition_id}", auth=("admin", "change-me"))
         self.assertIn("généré à 09:32", page.text)
-        self.assertIn("RAT / ARE / TES", page.text)
+        self.assertIn("RATEAU", page.text)
         archive = self.client.get("/editions", auth=("admin", "change-me"))
         self.assertIn("lundi 5 octobre 2026", archive.text)
         self.assertIn(">09:32<", archive.text)

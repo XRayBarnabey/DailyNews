@@ -57,6 +57,14 @@
         <strong>{{ daily_features.vocabulary.word }}</strong>
         {% if daily_features.vocabulary.translation %}<span>{{ daily_features.vocabulary.translation }}</span>{% endif %}
         <p>{{ daily_features.vocabulary.definition }}</p>
+        {% if daily_features.vocabulary.translations %}<p>{% for t in daily_features.vocabulary.translations %}<b>{{ t.language }}</b> : {{ t.word }}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+      </article>
+      {% endif %}
+      {% if daily_features.proverb %}
+      <article class="learning-card">
+        <h3>{{ daily_features.proverb.title }}</h3>
+        <strong>{{ daily_features.proverb.text }}</strong>
+        <p>{% if daily_features.proverb.title == 'La citation du jour' %}— {% endif %}{{ daily_features.proverb.meaning }}</p>
       </article>
       {% endif %}
       {% if daily_features.crossword %}
@@ -64,14 +72,13 @@
         <h3>Mots croisés · niveau {{ daily_features.crossword.difficulty }}</h3>
         <div class="crossword-content">
           <table class="crossword-grid" aria-label="Grille de mots croisés à compléter"><tbody>
-            {% for row in daily_features.crossword.rows %}
-            {% set row_index = loop.index0 %}
-            <tr>{% for letter in row %}<td>{% set number = daily_features.crossword.numbers[row_index][loop.index0] %}{% if number %}<span>{{ number }}</span>{% endif %}</td>{% endfor %}</tr>
+            {% for row in daily_features.crossword.grid %}
+            <tr>{% for cell in row %}<td class="{{ 'cell' if cell.filled else 'blank' }}">{% if cell.number %}<span>{{ cell.number }}</span>{% endif %}</td>{% endfor %}</tr>
             {% endfor %}
           </tbody></table>
           <div class="crossword-clues">
-            <p><b>Horizontalement</b><br>1. {{ daily_features.crossword.across[0] }}<br>4. {{ daily_features.crossword.across[1] }}<br>5. {{ daily_features.crossword.across[2] }}</p>
-            <p><b>Verticalement</b><br>1. {{ daily_features.crossword.down[0] }}<br>2. {{ daily_features.crossword.down[1] }}<br>3. {{ daily_features.crossword.down[2] }}</p>
+            <p><b>Horizontalement</b>{% for e in daily_features.crossword.across %}<br>{{ e.number }}. {{ e.clue }} ({{ e.length }}){% endfor %}</p>
+            <p><b>Verticalement</b>{% for e in daily_features.crossword.down %}<br>{{ e.number }}. {{ e.clue }} ({{ e.length }}){% endfor %}</p>
           </div>
         </div>
         <small>Solution sur la page web de cette édition.</small>
