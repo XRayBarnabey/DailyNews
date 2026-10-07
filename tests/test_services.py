@@ -155,7 +155,9 @@ class ServiceTests(unittest.TestCase):
         edition_date = datetime(2026, 10, 7).date()
         features = daily_features(edition_date, settings)
         self.assertEqual(features["crossword"]["solution"], "SEL / EGO / LOT")
-        self.assertNotEqual(features["vocabulary"]["word"], daily_features(edition_date.replace(day=8), settings)["vocabulary"]["word"])
+        self.assertNotEqual(
+            features["vocabulary"]["word"], daily_features(edition_date.replace(day=8), settings)["vocabulary"]["word"]
+        )
 
         self.db.add(Setting(key="show_daily_vocabulary", value="true"))
         self.db.add(Setting(key="vocabulary_language", value="pt-BR"))
@@ -331,6 +333,7 @@ class ServiceTests(unittest.TestCase):
         self.assertTrue(images)
         self.assertIn("DejaVu-Serif", font_names)
         self.assertIn("DejaVu-Sans", font_names)
+
 
 if __name__ == "__main__":
     unittest.main()

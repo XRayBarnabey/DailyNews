@@ -65,7 +65,8 @@
         <div class="crossword-content">
           <table class="crossword-grid" aria-label="Grille de mots croisés à compléter"><tbody>
             {% for row in daily_features.crossword.rows %}
-            <tr>{% for letter in row %}<td></td>{% endfor %}</tr>
+            {% set row_index = loop.index0 %}
+            <tr>{% for letter in row %}<td>{% set number = daily_features.crossword.numbers[row_index][loop.index0] %}{% if number %}<span>{{ number }}</span>{% endif %}</td>{% endfor %}</tr>
             {% endfor %}
           </tbody></table>
           <div class="crossword-clues">

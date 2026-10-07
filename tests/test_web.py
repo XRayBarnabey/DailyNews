@@ -111,7 +111,7 @@ class WebTests(unittest.TestCase):
 
     def test_edition_page_shows_crossword_solution_and_local_generation_time(self):
         with self.session_factory() as session:
-            session.add(Setting(key="timezone", value="Europe/Paris"))
+            session.merge(Setting(key="timezone", value="Europe/Paris"))
             edition = Edition(
                 edition_date=date(2026, 10, 5),
                 generated_at=datetime(2026, 10, 7, 7, 32, tzinfo=UTC),

@@ -1,12 +1,48 @@
 from datetime import date
 
 VOCABULARY = (
-    {"fr": "curieux", "en": "curious", "es": "curioso", "pt-BR": "curioso", "definition": "Qui désire apprendre ou comprendre."},
-    {"fr": "la lumière", "en": "light", "es": "la luz", "pt-BR": "a luz", "definition": "Ce qui rend les choses visibles."},
-    {"fr": "partager", "en": "to share", "es": "compartir", "pt-BR": "compartilhar", "definition": "Donner une part de quelque chose à quelqu’un."},
-    {"fr": "la fenêtre", "en": "window", "es": "la ventana", "pt-BR": "a janela", "definition": "Ouverture dans un mur qui laisse entrer la lumière."},
-    {"fr": "demain", "en": "tomorrow", "es": "mañana", "pt-BR": "amanhã", "definition": "Le jour qui suit aujourd’hui."},
-    {"fr": "le voyage", "en": "journey", "es": "el viaje", "pt-BR": "a viagem", "definition": "Déplacement vers un lieu plus ou moins éloigné."},
+    {
+        "fr": "curieux",
+        "en": "curious",
+        "es": "curioso",
+        "pt-BR": "curioso",
+        "definition": "Qui désire apprendre ou comprendre.",
+    },
+    {
+        "fr": "la lumière",
+        "en": "light",
+        "es": "la luz",
+        "pt-BR": "a luz",
+        "definition": "Ce qui rend les choses visibles.",
+    },
+    {
+        "fr": "partager",
+        "en": "to share",
+        "es": "compartir",
+        "pt-BR": "compartilhar",
+        "definition": "Donner une part de quelque chose à quelqu’un.",
+    },
+    {
+        "fr": "la fenêtre",
+        "en": "window",
+        "es": "la ventana",
+        "pt-BR": "a janela",
+        "definition": "Ouverture dans un mur qui laisse entrer la lumière.",
+    },
+    {
+        "fr": "demain",
+        "en": "tomorrow",
+        "es": "mañana",
+        "pt-BR": "amanhã",
+        "definition": "Le jour qui suit aujourd’hui.",
+    },
+    {
+        "fr": "le voyage",
+        "en": "journey",
+        "es": "el viaje",
+        "pt-BR": "a viagem",
+        "definition": "Déplacement vers un lieu plus ou moins éloigné.",
+    },
     {"fr": "heureux", "en": "happy", "es": "feliz", "pt-BR": "feliz", "definition": "Qui éprouve du bonheur."},
 )
 
@@ -23,18 +59,42 @@ IT_TERMS = (
 CROSSWORDS = {
     "debutant": {
         "rows": ("RAT", "ARE", "TES"),
-        "across": ("Petit rongeur à longue queue.", "Ancienne unité de mesure de surface.", "Adjectif possessif devant « livres » ou « idées »."),
-        "down": ("Petit rongeur à longue queue.", "Ancienne unité de mesure de surface.", "Adjectif possessif devant « livres » ou « idées »."),
+        "across": (
+            "Petit rongeur à longue queue.",
+            "Ancienne unité de mesure de surface.",
+            "Adjectif possessif devant « livres » ou « idées ».",
+        ),
+        "down": (
+            "Petit rongeur à longue queue.",
+            "Ancienne unité de mesure de surface.",
+            "Adjectif possessif devant « livres » ou « idées ».",
+        ),
     },
     "normal": {
         "rows": ("MOT", "OUI", "TES"),
-        "across": ("Unité de langue composée de lettres.", "Réponse affirmative.", "Adjectif possessif devant « livres » ou « idées »."),
-        "down": ("Unité de langue composée de lettres.", "Réponse affirmative.", "Adjectif possessif devant « livres » ou « idées »."),
+        "across": (
+            "Unité de langue composée de lettres.",
+            "Réponse affirmative.",
+            "Adjectif possessif devant « livres » ou « idées ».",
+        ),
+        "down": (
+            "Unité de langue composée de lettres.",
+            "Réponse affirmative.",
+            "Adjectif possessif devant « livres » ou « idées ».",
+        ),
     },
     "avance": {
         "rows": ("SEL", "EGO", "LOT"),
-        "across": ("Condiment blanc qui relève les plats.", "Le « moi » en psychologie.", "Ensemble ou groupe de personnes ou de choses."),
-        "down": ("Condiment blanc qui relève les plats.", "Le « moi » en psychologie.", "Ensemble ou groupe de personnes ou de choses."),
+        "across": (
+            "Condiment blanc qui relève les plats.",
+            "Le « moi » en psychologie.",
+            "Ensemble ou groupe de personnes ou de choses.",
+        ),
+        "down": (
+            "Condiment blanc qui relève les plats.",
+            "Le « moi » en psychologie.",
+            "Ensemble ou groupe de personnes ou de choses.",
+        ),
     },
 }
 
@@ -64,6 +124,7 @@ def daily_features(edition_date: date, settings: dict[str, str]) -> dict:
         features["crossword"] = {
             "difficulty": DIFFICULTY_NAMES[difficulty],
             "rows": puzzle["rows"],
+            "numbers": ((1, 2, 3), (4, None, None), (5, None, None)),
             "across": puzzle["across"],
             "down": puzzle["down"],
             "solution": " / ".join(puzzle["rows"]),
