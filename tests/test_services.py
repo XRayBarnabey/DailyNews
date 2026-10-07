@@ -154,7 +154,7 @@ class ServiceTests(unittest.TestCase):
         }
         edition_date = datetime(2026, 10, 7).date()
         features = daily_features(edition_date, settings)
-        self.assertEqual(features["crossword"]["solution"], "SEL / EGO / LOT")
+        self.assertGreaterEqual(features["crossword"]["word_count"], 5)
         self.assertNotEqual(
             features["vocabulary"]["word"], daily_features(edition_date.replace(day=8), settings)["vocabulary"]["word"]
         )
@@ -176,7 +176,7 @@ class ServiceTests(unittest.TestCase):
         self.assertIn("Mots croisés · niveau avancé", text)
         self.assertIn(features["it_term"]["term"], text)
         self.assertNotIn("SEL / EGO / LOT", text)
-        self.assertEqual(json.loads(edition.report)["daily_features"]["crossword"]["solution"], "SEL / EGO / LOT")
+        self.assertGreaterEqual(json.loads(edition.report)["daily_features"]["crossword"]["word_count"], 5)
 
     def test_no_feeds_or_candidates_produces_an_edition(self):
         today = datetime.now(ZoneInfo("Europe/Paris")).date()

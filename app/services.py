@@ -46,6 +46,8 @@ DEFAULT_SETTINGS = {
     "weather_locations": '[{"name":"Paris","latitude":48.8566,"longitude":2.3522,"timezone":"Europe/Paris"}]',
     "show_daily_vocabulary": "false",
     "vocabulary_language": "fr",
+    "show_vocabulary_translations": "false",
+    "show_proverb": "false",
     "show_crossword": "false",
     "crossword_difficulty": "debutant",
     "show_it_term": "false",

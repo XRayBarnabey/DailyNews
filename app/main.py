@@ -152,6 +152,8 @@ class SettingsInput(BaseModel):
     show_qr_codes: bool = False
     show_daily_vocabulary: bool = False
     vocabulary_language: Literal["fr", "en", "es", "pt-BR"] = "fr"
+    show_vocabulary_translations: bool = False
+    show_proverb: bool = False
     show_crossword: bool = False
     crossword_difficulty: Literal["debutant", "normal", "avance"] = "debutant"
     show_it_term: bool = False
@@ -467,6 +469,8 @@ def settings_save(
     show_qr_codes: bool = Form(False),
     show_daily_vocabulary: bool = Form(False),
     vocabulary_language: str = Form("fr"),
+    show_vocabulary_translations: bool = Form(False),
+    show_proverb: bool = Form(False),
     show_crossword: bool = Form(False),
     crossword_difficulty: str = Form("debutant"),
     show_it_term: bool = Form(False),
@@ -502,6 +506,8 @@ def settings_save(
             show_qr_codes=show_qr_codes,
             show_daily_vocabulary=show_daily_vocabulary,
             vocabulary_language=vocabulary_language,
+            show_vocabulary_translations=show_vocabulary_translations,
+            show_proverb=show_proverb,
             show_crossword=show_crossword,
             crossword_difficulty=crossword_difficulty,
             show_it_term=show_it_term,

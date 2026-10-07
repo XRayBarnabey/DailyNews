@@ -45,7 +45,8 @@ body { margin: 0; }
 .crossword { flex-basis: 100%; }
 .crossword-content { display: flex; gap: 4mm; align-items: flex-start; }
 .crossword-grid { border-collapse: collapse; flex: 0 0 auto; }
-.crossword-grid td { position: relative; width: 6mm; height: 6mm; border: .7pt solid #171717; }
+.crossword-grid td { position: relative; width: 5mm; height: 5mm; }
+.crossword-grid td.cell { border: .7pt solid #171717; }
 .crossword-grid td span { position: absolute; top: .2mm; left: .4mm; font: 5pt sans-serif; }
 .crossword-clues { display: flex; gap: 5mm; }
 .crossword-clues p { margin: 0; }
