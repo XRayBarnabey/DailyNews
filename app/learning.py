@@ -235,7 +235,7 @@ def build_crossword(difficulty: str, seed: int, online_words: list[tuple[str, st
     }
 
 
-LANGUAGE_NAMES = {"fr": "français", "en": "anglais", "es": "espagnol", "pt-BR": "portugais du Brésil"}
+LANGUAGE_NAMES = {"fr": "français", "en": "anglais", "es": "espagnol", "pt-BR": "brésilien"}
 DIFFICULTY_NAMES = {"debutant": "débutant", "normal": "normal", "avance": "avancé"}
 
 

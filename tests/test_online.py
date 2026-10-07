@@ -17,12 +17,24 @@ class OnlineContentTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
 
     def test_quotes_are_fetched_cached_and_used(self):
-        payload = {"quotes": [{"quote": f"Citation {i}", "author": f"Auteur {i}"} for i in range(300)]}
+        payload = {
+            "success": True,
+            "data": {"text": "La citation française du jour.", "author": {"forename": "Hubert", "name": "Reeves"}},
+        }
         with patch("app.online._get_json", return_value=payload) as call:
             features = daily_features(date(2026, 10, 7), {"show_proverb": "true"})
-            self.assertEqual(len(online.fetch_quotes()), 300)
+            self.assertEqual(online.fetch_quotes(), [{"text": "La citation française du jour.", "author": "Hubert Reeves"}])
             self.assertEqual(call.call_count, 1)
         self.assertEqual(features["proverb"]["title"], "La citation du jour")
+        self.assertEqual(features["proverb"]["text"], "La citation française du jour.")
+        self.assertEqual(features["proverb"]["meaning"], "Hubert Reeves")
+
+    def test_brazilian_translation_label_is_brésilien(self):
+        settings = {"show_daily_vocabulary": "true", "show_vocabulary_translations": "true"}
+        brazilian = daily_features(date(2026, 10, 7), {**settings, "vocabulary_language": "pt-BR"})
+        english = daily_features(date(2026, 10, 7), {**settings, "vocabulary_language": "en"})
+        self.assertEqual(brazilian["vocabulary"]["language"], "brésilien")
+        self.assertTrue(any(item["language"] == "brésilien" for item in english["vocabulary"]["translations"]))
 
     def test_quotes_fall_back_to_proverb_offline(self):
         with patch("app.online._get_json", side_effect=OSError("offline")):
