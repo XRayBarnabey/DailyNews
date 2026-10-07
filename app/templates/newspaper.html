@@ -62,9 +62,9 @@
       {% endif %}
       {% if daily_features.proverb %}
       <article class="learning-card">
-        <h3>Le proverbe du jour</h3>
+        <h3>{{ daily_features.proverb.title }}</h3>
         <strong>{{ daily_features.proverb.text }}</strong>
-        <p>{{ daily_features.proverb.meaning }}</p>
+        <p>{% if daily_features.proverb.title == 'La citation du jour' %}— {% endif %}{{ daily_features.proverb.meaning }}</p>
       </article>
       {% endif %}
       {% if daily_features.crossword %}

@@ -1,6 +1,8 @@
 import random
 from datetime import date
 
+from app.online import fetch_crossword_words, fetch_quotes
+
 VOCABULARY = (
     {
         "fr": "curieux",
@@ -114,7 +116,8 @@ CROSSWORD_WORDS = {
 }
 
 MIN_CROSSWORD_WORDS = 5
-MAX_CROSSWORD_WORDS = 6
+CANDIDATE_POOL = 60
+MAX_CROSSWORD_WORDS = 10
 
 PROVERBS = (
     ("Petit à petit, l’oiseau fait son nid.", "La patience permet d’accomplir de grandes choses."),
@@ -180,20 +183,23 @@ def _try_layout(words: list[tuple[str, str]]) -> dict[tuple[int, int], str] | No
     return {"cells": cells, "placed": placed}
 
 
-def build_crossword(difficulty: str, seed: int) -> dict:
-    bank = list(dict.fromkeys(CROSSWORD_WORDS[difficulty]))
+def build_crossword(difficulty: str, seed: int, online_words: list[tuple[str, str]] | None = None) -> dict:
+    words = list(CROSSWORD_WORDS[difficulty]) + list(online_words or [])
     rng = random.Random(seed)
+    bank = list(dict(words).items())
+    if len(bank) > CANDIDATE_POOL:
+        bank = rng.sample(bank, CANDIDATE_POOL)
     best = None
     for _ in range(300):
         rng.shuffle(bank)
         layout = _try_layout(bank)
         if layout and (best is None or len(layout["placed"]) > len(best["placed"])):
             best = layout
-            if len(best["placed"]) >= 6:
+            if len(best["placed"]) >= MAX_CROSSWORD_WORDS:
                 break
     if best is None:
         raise ValueError("Impossible de construire la grille de mots croisés.")
-    clues = dict(CROSSWORD_WORDS[difficulty])
+    clues = dict(words)
     cells, placed = best["cells"], best["placed"]
     min_r = min(r for r, _ in cells)
     min_c = min(c for _, c in cells)
@@ -255,11 +261,17 @@ def daily_features(edition_date: date, settings: dict[str, str]) -> dict:
         difficulty = settings.get("crossword_difficulty", "debutant")
         if difficulty not in CROSSWORD_WORDS:
             difficulty = "debutant"
-        puzzle = build_crossword(difficulty, day_index)
+        online = fetch_crossword_words().get(difficulty) if settings.get("online_content", "true") == "true" else None
+        puzzle = build_crossword(difficulty, day_index, online)
         features["crossword"] = {"difficulty": DIFFICULTY_NAMES[difficulty], **puzzle}
     if settings.get("show_proverb") == "true":
-        text, meaning = PROVERBS[day_index % len(PROVERBS)]
-        features["proverb"] = {"text": text, "meaning": meaning}
+        quotes = fetch_quotes() if settings.get("online_content", "true") == "true" else []
+        if quotes:
+            item = quotes[day_index % len(quotes)]
+            features["proverb"] = {"title": "La citation du jour", "text": item["text"], "meaning": item["author"]}
+        else:
+            text, meaning = PROVERBS[day_index % len(PROVERBS)]
+            features["proverb"] = {"title": "Le proverbe du jour", "text": text, "meaning": meaning}
     if settings.get("show_it_term") == "true":
         term, definition = IT_TERMS[day_index % len(IT_TERMS)]
         features["it_term"] = {"term": term, "definition": definition}

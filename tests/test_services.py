@@ -151,6 +151,7 @@ class ServiceTests(unittest.TestCase):
             "show_crossword": "true",
             "crossword_difficulty": "avance",
             "show_it_term": "true",
+            "online_content": "false",
         }
         edition_date = datetime(2026, 10, 7).date()
         features = daily_features(edition_date, settings)
@@ -164,6 +165,7 @@ class ServiceTests(unittest.TestCase):
         self.db.add(Setting(key="show_crossword", value="true"))
         self.db.add(Setting(key="crossword_difficulty", value="avance"))
         self.db.add(Setting(key="show_it_term", value="true"))
+        self.db.add(Setting(key="online_content", value="false"))
         self.db.commit()
         with (
             tempfile.TemporaryDirectory() as directory,
