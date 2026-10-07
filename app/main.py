@@ -6,7 +6,7 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from dataclasses import asdict
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlencode
@@ -36,6 +36,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.bootstrap import initialize
+from app.calendar import format_french_date
 from app.config import ADMIN_PASSWORD, ADMIN_USER, LOG_LEVEL, PDF_DIR, TIMEZONE, ensure_directories
 from app.database import SessionLocal, get_db
 from app.logging_config import configure_logging
@@ -52,6 +53,18 @@ logger = logging.getLogger(__name__)
 security = HTTPBasic()
 templates = Jinja2Templates(directory="app/templates")
 templates.env.globals["app_version"] = APP_VERSION
+templates.env.filters["french_date"] = format_french_date
+
+
+def format_local_time(value: datetime | None, timezone_name: str) -> str:
+    if value is None:
+        return "—"
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(ZoneInfo(timezone_name)).strftime("%H:%M")
+
+
+templates.env.filters["local_time"] = format_local_time
 
 
 def require_admin(credentials: HTTPBasicCredentials = Depends(security)) -> str:
@@ -137,6 +150,11 @@ class SettingsInput(BaseModel):
     show_descriptions: bool = True
     show_source_url: bool = False
     show_qr_codes: bool = False
+    show_daily_vocabulary: bool = False
+    vocabulary_language: Literal["fr", "en", "es", "pt-BR"] = "fr"
+    show_crossword: bool = False
+    crossword_difficulty: Literal["debutant", "normal", "avance"] = "debutant"
+    show_it_term: bool = False
 
 
 def persist_settings_model(db: Session, values: SettingsInput) -> None:
@@ -201,6 +219,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             "feed_count": feed_count,
             "article_count": article_count,
             "edition": edition,
+            "timezone_name": settings_dict(db).get("timezone", TIMEZONE),
             "schedule": schedule,
             "recent_feeds": db.scalars(select(Feed).order_by(Feed.name)).all(),
             "recent_print": db.scalar(select(PrintJob).order_by(PrintJob.created_at.desc())),
@@ -446,6 +465,11 @@ def settings_save(
     show_images: bool = Form(False),
     show_descriptions: bool = Form(True),
     show_qr_codes: bool = Form(False),
+    show_daily_vocabulary: bool = Form(False),
+    vocabulary_language: str = Form("fr"),
+    show_crossword: bool = Form(False),
+    crossword_difficulty: str = Form("debutant"),
+    show_it_term: bool = Form(False),
     db: Session = Depends(get_db),
 ):
     try:
@@ -476,6 +500,11 @@ def settings_save(
             show_images=show_images,
             show_descriptions=show_descriptions,
             show_qr_codes=show_qr_codes,
+            show_daily_vocabulary=show_daily_vocabulary,
+            vocabulary_language=vocabulary_language,
+            show_crossword=show_crossword,
+            crossword_difficulty=crossword_difficulty,
+            show_it_term=show_it_term,
         )
     except Exception as exc:
         raise HTTPException(422, str(exc)) from exc
@@ -550,7 +579,15 @@ def action_print(edition_id: int = Form(), db: Session = Depends(get_db)):
 @web.get("/editions", response_class=HTMLResponse)
 def editions_page(request: Request, db: Session = Depends(get_db)):
     editions = db.scalars(select(Edition).order_by(Edition.edition_date.desc())).all()
-    return templates.TemplateResponse(request, "editions.html", {"active": "editions", "editions": editions})
+    return templates.TemplateResponse(
+        request,
+        "editions.html",
+        {
+            "active": "editions",
+            "editions": editions,
+            "timezone_name": settings_dict(db).get("timezone", TIMEZONE),
+        },
+    )
 
 
 @web.get("/editions/{edition_id}", response_class=HTMLResponse)
@@ -565,6 +602,7 @@ def edition_page(edition_id: int, request: Request, db: Session = Depends(get_db
             "active": "editions",
             "edition": edition,
             "report": json.loads(edition.report or "{}"),
+            "timezone_name": settings_dict(db).get("timezone", TIMEZONE),
             "schedule": db.get(Schedule, 1),
             "last_print_job": db.scalar(
                 select(PrintJob)

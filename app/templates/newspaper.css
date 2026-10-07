@@ -34,4 +34,19 @@ body { margin: 0; }
 .story-qr { display: block; flex: 0 0 11mm; width: 11mm; height: 11mm; }
 .story-qr img { display: block; width: 11mm; height: 11mm; }
 .empty-state { font: italic 10pt serif; }
+.daily-learning { clear: both; margin-top: 5mm; padding-top: 3mm; border-top: 1.5pt solid #171717; break-inside: avoid; }
+.daily-learning > h2 { margin: 0 0 2mm; font: bold 12pt sans-serif; }
+.learning-grid { display: flex; flex-wrap: wrap; gap: 2.5mm; align-items: flex-start; }
+.learning-card { flex: 1 1 52mm; min-width: 0; padding: 2mm; border: .5pt solid #777; break-inside: avoid; font: 7pt/1.3 sans-serif; }
+.learning-card h3 { margin: 0 0 1mm; font: bold 8pt sans-serif; }
+.learning-card strong { display: block; font-size: 10pt; }
+.learning-card p { margin: 1mm 0 0; }
+.learning-card small { display: block; margin-top: 1mm; font-size: 6pt; }
+.crossword { flex-basis: 100%; }
+.crossword-content { display: flex; gap: 4mm; align-items: flex-start; }
+.crossword-grid { border-collapse: collapse; flex: 0 0 auto; }
+.crossword-grid td { position: relative; width: 6mm; height: 6mm; border: .7pt solid #171717; }
+.crossword-grid td span { position: absolute; top: .2mm; left: .4mm; font: 5pt sans-serif; }
+.crossword-clues { display: flex; gap: 5mm; }
+.crossword-clues p { margin: 0; }
 @media screen { body { width: 180mm; margin: 20px auto; } }
